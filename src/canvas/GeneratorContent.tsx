@@ -4,6 +4,7 @@ import { Image as KonvaImage } from 'react-konva'
 import type { GeneratorLayer } from '../types/poster'
 import { internalSize, renderGenerator } from '../generators/runtime'
 import { useTimeline } from '../store/timeline'
+import { bitmapConfig } from '../render/configs'
 
 export function GeneratorContent({ layer }: { layer: GeneratorLayer }) {
   const imageRef = useRef<Konva.Image>(null)
@@ -42,8 +43,7 @@ export function GeneratorContent({ layer }: { layer: GeneratorLayer }) {
     <KonvaImage
       ref={imageRef}
       image={canvasRef.current}
-      width={layer.width}
-      height={layer.height}
+      {...bitmapConfig(layer)}
     />
   )
 }

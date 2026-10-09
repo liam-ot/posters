@@ -1,15 +1,18 @@
 import type Konva from 'konva'
 import { Ellipse, Group, Image as KonvaImage, Rect, Text } from 'react-konva'
-import type {
-  GeneratorLayer,
-  ImageLayer,
-  Layer,
-  StrokeStyle,
-} from '../types/poster'
+import type { GeneratorLayer, ImageLayer, Layer, StrokeStyle } from '../types/poster'
 import { useImage } from './useImage'
 import { GeneratorContent } from './GeneratorContent'
 import { measureTextHeight } from './textMetrics'
-import { strokeDash } from './stroke'
+import {
+  bitmapConfig,
+  borderConfig,
+  ellipseConfig,
+  layerBorder,
+  layerGroupConfig,
+  rectConfig,
+  textConfig,
+} from '../render/configs'
 
 interface Props {
   layer: Layer
@@ -24,20 +27,12 @@ interface Props {
 const TEXT_NAME = 'layer-text'
 const BORDER_NAME = 'layer-border'
 
-/** Build the Konva fontStyle string from weight + italic. */
-function fontStyleString(weight: number | string, italic: boolean) {
-  return `${italic ? 'italic ' : ''}${weight}`
-}
-
 function ImageContent({ layer }: { layer: ImageLayer }) {
   const image = useImage(layer.src)
-  return <KonvaImage image={image} width={layer.width} height={layer.height} />
+  return <KonvaImage image={image} {...bitmapConfig(layer)} />
 }
 
-/**
- * A border stroked just inside the perimeter of a w×h box. Inset by half the
- * stroke width so the whole stroke sits inside the box edge.
- */
+/** Border stroked just inside a w×h box (see render/configs). */
 function BorderBox({
   w,
   h,
@@ -53,19 +48,10 @@ function BorderBox({
   strokeStyle?: StrokeStyle
   cornerRadius?: number
 }) {
-  const dash = strokeDash(strokeStyle, strokeWidth)
   return (
     <Rect
       name={BORDER_NAME}
-      x={strokeWidth / 2}
-      y={strokeWidth / 2}
-      width={Math.max(0, w - strokeWidth)}
-      height={Math.max(0, h - strokeWidth)}
-      stroke={stroke}
-      strokeWidth={strokeWidth}
-      cornerRadius={cornerRadius}
-      dash={dash.dash}
-      lineCap={dash.lineCap}
+      {...borderConfig(w, h, stroke, strokeWidth, strokeStyle, cornerRadius)}
       listening={false}
     />
   )
@@ -89,84 +75,32 @@ export function LayerNode({
     // HTML textarea is the only visible copy.
     if (editing && layer.type === 'text') return null
     switch (layer.type) {
-      case 'rect': {
-        const dash = strokeDash(layer.strokeStyle, layer.strokeWidth ?? 0)
-        return (
-          <Rect
-            width={layer.width}
-            height={layer.height}
-            fill={layer.fill}
-            cornerRadius={layer.cornerRadius}
-            stroke={layer.stroke}
-            strokeWidth={layer.strokeWidth}
-            dash={dash.dash}
-            lineCap={dash.lineCap}
-          />
-        )
-      }
-      case 'ellipse': {
-        const dash = strokeDash(layer.strokeStyle, layer.strokeWidth ?? 0)
-        return (
-          <Ellipse
-            x={layer.width / 2}
-            y={layer.height / 2}
-            radiusX={layer.width / 2}
-            radiusY={layer.height / 2}
-            fill={layer.fill}
-            stroke={layer.stroke}
-            strokeWidth={layer.strokeWidth}
-            dash={dash.dash}
-            lineCap={dash.lineCap}
-          />
-        )
-      }
+      case 'rect':
+        return <Rect {...rectConfig(layer)} />
+      case 'ellipse':
+        return <Ellipse {...ellipseConfig(layer)} />
       case 'text': {
-        const sw = layer.strokeWidth ?? 0
-        const bordered = sw > 0 && !!layer.stroke
+        const border = layerBorder(layer)
         return (
           <>
-            <Text
-              name={TEXT_NAME}
-              width={layer.width}
-              text={layer.text}
-              fontFamily={layer.fontFamily}
-              fontSize={layer.fontSize}
-              fontStyle={fontStyleString(
-                layer.fontWeight,
-                layer.fontStyle === 'italic',
-              )}
-              fill={layer.fill}
-              align={layer.align}
-              lineHeight={layer.lineHeight}
-              letterSpacing={layer.letterSpacing}
-              wrap="word"
-            />
-            {bordered && (
+            <Text name={TEXT_NAME} {...textConfig(layer)} />
+            {border && (
               <BorderBox
                 w={layer.width}
                 h={measureTextHeight(layer, layer.width)}
-                stroke={layer.stroke!}
-                strokeWidth={sw}
-                strokeStyle={layer.strokeStyle}
+                {...border}
               />
             )}
           </>
         )
       }
       case 'image': {
-        const sw = layer.strokeWidth ?? 0
-        const bordered = sw > 0 && !!layer.stroke
+        const border = layerBorder(layer)
         return (
           <>
             <ImageContent layer={layer} />
-            {bordered && (
-              <BorderBox
-                w={layer.width}
-                h={layer.height}
-                stroke={layer.stroke!}
-                strokeWidth={sw}
-                strokeStyle={layer.strokeStyle}
-              />
+            {border && (
+              <BorderBox w={layer.width} h={layer.height} {...border} />
             )}
           </>
         )
@@ -180,13 +114,9 @@ export function LayerNode({
     <Group
       id={layer.id}
       name="layer"
-      x={layer.x}
-      y={layer.y}
-      rotation={layer.rotation}
-      opacity={layer.visible ? layer.opacity : 0}
+      {...layerGroupConfig(layer)}
       draggable={!layer.locked && isSelected}
       listening={!layer.locked && layer.visible && layer.opacity > 0}
-      globalCompositeOperation={layer.blendMode}
       onMouseDown={handleSelect}
       onTap={handleSelect}
       onDblClick={() => {

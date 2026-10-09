@@ -10,6 +10,7 @@ import type {
   TimelineConfig,
 } from '../types/poster'
 import { createDefaultDoc, createLayer } from '../lib/layers'
+import { normalizeDoc } from '../lib/normalize'
 
 interface EditorState {
   doc: PosterDoc | null
@@ -58,7 +59,7 @@ export const useEditor = create<EditorState>()(
       doc: null,
       selectedIds: [],
 
-      loadDoc: (doc) => set({ doc, selectedIds: [] }),
+      loadDoc: (doc) => set({ doc: normalizeDoc(doc), selectedIds: [] }),
       newDoc: (name) => set({ doc: createDefaultDoc(name), selectedIds: [] }),
       closeDoc: () => set({ doc: null, selectedIds: [] }),
 

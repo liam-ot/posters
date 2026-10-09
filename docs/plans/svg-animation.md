@@ -483,9 +483,23 @@ playback/export reflect the changes.
 - [ ] New `LayerType`s added to every `switch` (§4.1); `noFallthroughCasesInSwitch` will help.
 - [ ] Generator `animated` flag keeps working exactly as before (separate concept; unify in v2).
 
-## 7. Progress
+## 7. Implementation notes
 
-- [ ] Phase 0 — Groundwork
+**Phase 0**
+- Verified identical output: `renderSceneToCanvas` pixel hashes for all 4 saved posters (t=0, t=1.3) and a synthetic
+  poster (rect/ellipse/text/image with dashed/dotted borders, rotation, blend modes, hidden layer; 1x and 2x) match
+  between the original and refactored code.
+- Known pre-existing live/export mismatch, **left as-is** to keep Phase 0 behaviour-identical: for bordered text the live
+  canvas sizes the border box with `measureTextHeight` (rounded up, e.g. 59) while export uses Konva's `text.height()`
+  (e.g. 58.8), so the bottom border edge differs by ~0.2px. Fix by using one source in `src/render/` (changes export
+  output slightly for bordered text) — needs the user's OK; natural to do in Phase 1.
+- Tooling: `node_modules` was installed with a newer pnpm than the one first on `PATH` (10.22). Use
+  `/opt/homebrew/bin/pnpm` (12.x) for installs; `pnpm typecheck` / `pnpm test` work with either.
+- Vitest has its own `vitest.config.ts` (does not load the dev-server API plugin).
+
+## 8. Progress
+
+- [x] Phase 0 — Groundwork (done; awaiting user review)
 - [ ] Phase 1 — Animation engine + generic presets
 - [ ] Phase 2 — Path rendering + shape library
 - [ ] Phase 3 — SVG import (stretch: clipPath, embedded images)
