@@ -15,6 +15,8 @@ import {
   Toggle,
 } from './controls'
 import { FontPicker } from './FontPicker'
+import { ParamControls } from './ParamControls'
+import { AnimationSection } from './AnimationSection'
 
 const BLEND_MODES: { value: BlendMode; label: string }[] = [
   { value: 'source-over', label: 'Normal' },
@@ -201,48 +203,7 @@ function GeneratorSection({
           <Shuffle size={13} />
         </button>
       </Field>
-      {cfg.controls.map((c) => {
-        const v = params[c.key]
-        return (
-          <Field key={c.key} label={c.label}>
-            {c.type === 'slider' && (
-              <>
-                <Slider
-                  value={v as number}
-                  min={c.min}
-                  max={c.max}
-                  step={c.step}
-                  onChange={(val) => setParam(c.key, val)}
-                />
-                <span className="w-9 shrink-0 text-right text-xs text-[var(--color-muted)]">
-                  {typeof v === 'number' && c.step < 1
-                    ? (v as number).toFixed(2)
-                    : v}
-                </span>
-              </>
-            )}
-            {c.type === 'color' && (
-              <ColorInput
-                value={v as string}
-                onChange={(val) => setParam(c.key, val)}
-              />
-            )}
-            {c.type === 'select' && (
-              <Select
-                value={v as string}
-                options={c.options}
-                onChange={(val) => setParam(c.key, val)}
-              />
-            )}
-            {c.type === 'toggle' && (
-              <Toggle
-                value={v as boolean}
-                onChange={(val) => setParam(c.key, val)}
-              />
-            )}
-          </Field>
-        )
-      })}
+      <ParamControls controls={cfg.controls} params={params} onChange={setParam} />
     </PanelSection>
   )
 }
@@ -457,6 +418,7 @@ export function Inspector() {
       <TransformSection layer={layer} patch={patch} />
       <TypeSection layer={layer} patch={patch} />
       <AppearanceSection layer={layer} patch={patch} />
+      <AnimationSection layer={layer} patch={patch} />
     </div>
   )
 }

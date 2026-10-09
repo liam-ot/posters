@@ -13,6 +13,53 @@ export interface TimelineConfig {
   durationSec: number
   fps: number
   loop: boolean
+  /** Tempo for beat-synced loops. Unset = off (docs/adr/0005). */
+  bpm?: number
+  /** Beats per bar (default 4). */
+  beatsPerBar?: number
+}
+
+// ── Animation (docs/adr/0001, 0005) ────────────────────────────────────────
+export type AnimationPhase = 'in' | 'out' | 'loop'
+export type TimeUnit = 'sec' | 'beat' | 'bar'
+export type EasingName =
+  | 'linear'
+  | 'easeIn'
+  | 'easeOut'
+  | 'easeInOut'
+  | 'backOut'
+  | 'elasticOut'
+  | 'bounceOut'
+
+export type AnimationPresetId =
+  | 'fade'
+  | 'slide'
+  | 'scale'
+  | 'rotate'
+  | 'pulse'
+  | 'float'
+  | 'spin'
+  | 'sway'
+  | 'jitter'
+  | 'blink'
+
+export interface LayerAnimation {
+  id: string
+  preset: AnimationPresetId
+  phase: AnimationPhase
+  enabled: boolean
+  /** in: seconds after t=0 that the animation starts. */
+  delay?: number
+  /** out: seconds before the timeline end that the animation finishes. */
+  endOffset?: number
+  /** in/out: seconds the animation takes. */
+  duration?: number
+  /** loop: length of one cycle, in `periodUnit`. */
+  period?: number
+  periodUnit?: TimeUnit
+  /** in/out only; loops ignore it. */
+  easing: EasingName
+  params: Record<string, number | string | boolean>
 }
 
 export type LayerType = 'rect' | 'ellipse' | 'text' | 'image' | 'generator'
@@ -33,6 +80,7 @@ export interface BaseLayer {
   visible: boolean
   locked: boolean
   clip?: boolean
+  animations?: LayerAnimation[]
 }
 
 export interface RectLayer extends BaseLayer {

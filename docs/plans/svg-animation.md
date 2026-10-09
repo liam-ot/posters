@@ -497,10 +497,29 @@ playback/export reflect the changes.
   `/opt/homebrew/bin/pnpm` (12.x) for installs; `pnpm typecheck` / `pnpm test` work with either.
 - Vitest has its own `vitest.config.ts` (does not load the dev-server API plugin).
 
+**Phase 1**
+- Built as planned (types, easing, timing, looping noise, 10 presets, evaluator, inner group, rest toggle, BPM + bars,
+  Inspector Animation section, rest-state thumbnails and still export). 69 new unit tests cover the properties in ADR-0004/0010.
+- Deviations / additions (also recorded in the ADRs):
+  - `slide`, `scale`, `rotate` have a **Fade** toggle (one `in` per layer, so "move + fade" must be one preset).
+  - Out = `ease(1 - q)` (time-mirror of in), not `1 - ease(q)` (ADR-0005).
+  - The `Transformer` box follows child transforms, so `LayerNode` overrides the outer group's `getClientRect`
+    (ADR-0003 corrected — the original claim that the box would stay put was wrong).
+  - Every layer renders inside the inner group (identity when not animated) rather than only animated ones, keeping the
+    React tree stable; saved posters hash identically to Phase 0.
+  - Fixed the Phase 0 bordered-text mismatch: export now sizes the border with `measureTextHeight`, same as the canvas.
+  - Removed the now-unused `captureStageDataURL`; thumbnails use `renderThumbnail` (rest state, off-screen).
+  - Timeline bar wraps inside the canvas area when BPM fields make it wide.
+  - `LayerFrame.paths` is not defined yet; Phase 4 adds it with the path presets.
+- Verified in the app: live canvas vs export = 0 differing pixels at animated frames (t=0, .2, .9, 2.25, 4.7, and rest);
+  selection box identical across time/rest; saved x/y never contaminated by animation; thumbnails show rest state;
+  MP4 export (50 frames) contains the animation; add-animation menu and BPM flow work.
+- Not done in this phase: the "Show rest state" toggle only affects layer animations (generators keep animating by time).
+
 ## 8. Progress
 
 - [x] Phase 0 — Groundwork (done; awaiting user review)
-- [ ] Phase 1 — Animation engine + generic presets
+- [x] Phase 1 — Animation engine + generic presets (done; awaiting user review)
 - [ ] Phase 2 — Path rendering + shape library
 - [ ] Phase 3 — SVG import (stretch: clipPath, embedded images)
 - [ ] Phase 4 — Path-level animation presets

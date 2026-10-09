@@ -8,6 +8,9 @@ interface UIState {
   // bumped to request a "zoom to fit" from the canvas
   fitNonce: number
   requestFit: () => void
+  // Show every layer in its final, un-animated state (docs/adr/0006).
+  showRest: boolean
+  setShowRest: (v: boolean) => void
 }
 
 export const useUI = create<UIState>((set) => ({
@@ -15,4 +18,6 @@ export const useUI = create<UIState>((set) => ({
   setView: (view) => set({ view }),
   fitNonce: 0,
   requestFit: () => set((s) => ({ fitNonce: s.fitNonce + 1 })),
+  showRest: false,
+  setShowRest: (showRest) => set({ showRest }),
 }))

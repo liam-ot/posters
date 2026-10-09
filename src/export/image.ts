@@ -16,14 +16,23 @@ function sanitizeName(name: string) {
   )
 }
 
-/** Render the current frame and write a png/jpg to the project root. */
+export type StillFrame = 'rest' | 'current'
+
+/**
+ * Render a still and write a png/jpg to the project root. `rest` (default) is the
+ * complete, un-animated poster; `current` is the frame at the playhead (docs/adr/0006).
+ */
 export async function exportImageToRoot(
   doc: PosterDoc,
-  { format, scale }: { format: 'png' | 'jpg'; scale: number },
+  {
+    format,
+    scale,
+    frame = 'rest',
+  }: { format: 'png' | 'jpg'; scale: number; frame?: StillFrame },
 ): Promise<ExportResult> {
   await document.fonts.ready
-  const t = useTimeline.getState().time
-  const canvas = await renderSceneToCanvas(doc, t, scale)
+  const t = frame === 'current' ? useTimeline.getState().time : 0
+  const canvas = await renderSceneToCanvas(doc, t, scale, { rest: frame === 'rest' })
   const mime = format === 'jpg' ? 'image/jpeg' : 'image/png'
   const dataURL = canvas.toDataURL(mime, format === 'jpg' ? 0.92 : undefined)
   const dataBase64 = dataURL.slice(dataURL.indexOf(',') + 1)

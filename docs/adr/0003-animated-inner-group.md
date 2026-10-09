@@ -35,6 +35,12 @@ static layers do not re-render per frame.
 ## Consequences
 
 - (+) The document only ever contains authored values.
-- (+) The selection box sits at the layer's authored position, not at the animated position. This is expected and
-  matches most motion tools, but may surprise when scrubbing; the "Show rest state" toggle ([ADR-0006](0006-rest-state-and-still-output.md)) is the escape hatch.
-- (-) One extra node per animated layer.
+- (+) The selection box stays at the layer's authored position while it animates. **This is not automatic:** Konva's
+  `Transformer` sizes its box from the node's content *including* child transforms, so the box would follow the
+  animation and collapse to nothing at scale 0. `LayerNode` therefore overrides the outer group's `getClientRect`
+  (for the `skipTransform` call the Transformer makes) to measure the content relative to the inner group. Verified:
+  the box is identical at every time and in rest state.
+- (-) One extra node per layer. Every layer gets the inner group (identity when not animated) so the React tree stays
+  stable when animations are added or removed; an identity group renders pixel-identically (checked against saved posters).
+- (-) Drag-snapping to the artboard centre still measures the visual bounds (`getClientRect` without `skipTransform`),
+  so while an animated layer is mid-animation it snaps by what you see. Acceptable; revisit if it annoys.

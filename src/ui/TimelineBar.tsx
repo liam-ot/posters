@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
-import { Pause, Play, RotateCcw } from 'lucide-react'
+import { Eye, Pause, Play, RotateCcw } from 'lucide-react'
 import { useEditor } from '../store/editor'
 import { useTimeline } from '../store/timeline'
+import { useUI } from '../store/ui'
 import { NumberInput } from './controls'
 
 /** rAF clock that advances the playhead while playing, looping on duration. */
@@ -44,12 +45,15 @@ export function TimelineBar() {
   const playing = useTimeline((s) => s.playing)
   const toggle = useTimeline((s) => s.toggle)
   const setTime = useTimeline((s) => s.setTime)
+  const showRest = useUI((s) => s.showRest)
+  const setShowRest = useUI((s) => s.setShowRest)
 
   if (!doc) return null
-  const { durationSec, fps } = doc.timeline
+  const { durationSec, fps, bpm, beatsPerBar = 4 } = doc.timeline
+  const barSec = bpm ? (60 / bpm) * beatsPerBar : 0
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-panel)] px-3 py-2 shadow-lg">
+    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-panel)] px-3 py-2 shadow-lg">
       <button
         onClick={toggle}
         title={playing ? 'Pause' : 'Play'}
@@ -63,6 +67,18 @@ export function TimelineBar() {
         className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-muted)] hover:bg-[var(--color-panel-2)] hover:text-[var(--color-text)]"
       >
         <RotateCcw size={15} />
+      </button>
+
+      <button
+        onClick={() => setShowRest(!showRest)}
+        title="Show rest state — every layer in its final, un-animated layout (easier editing)"
+        className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+          showRest
+            ? 'bg-[var(--color-accent)] text-white'
+            : 'text-[var(--color-muted)] hover:bg-[var(--color-panel-2)] hover:text-[var(--color-text)]'
+        }`}
+      >
+        <Eye size={15} />
       </button>
 
       <input
@@ -103,6 +119,54 @@ export function TimelineBar() {
           />
         </div>
       </label>
+
+      <div className="h-6 w-px bg-[var(--color-border)]" />
+
+      <label
+        className="flex items-center gap-1 text-xs text-[var(--color-muted)]"
+        title="Tempo for beat-synced loops. 0 = off"
+      >
+        <span>BPM</span>
+        <div className="w-14">
+          <NumberInput
+            value={bpm ?? 0}
+            min={0}
+            max={300}
+            onChange={(v) => updateTimeline({ bpm: v > 0 ? v : undefined })}
+          />
+        </div>
+      </label>
+      {bpm && (
+        <>
+          <label className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
+            <span>Beats/bar</span>
+            <div className="w-12">
+              <NumberInput
+                value={beatsPerBar}
+                min={1}
+                max={16}
+                onChange={(v) => updateTimeline({ beatsPerBar: Math.round(v) })}
+              />
+            </div>
+          </label>
+          <label
+            className="flex items-center gap-1 text-xs text-[var(--color-muted)]"
+            title="Set the duration to a whole number of bars so loops line up"
+          >
+            <span>Bars</span>
+            <div className="w-14">
+              <NumberInput
+                value={Math.round((durationSec / barSec) * 100) / 100}
+                min={0.25}
+                step={1}
+                onChange={(v) =>
+                  updateTimeline({ durationSec: Math.round(v * barSec * 1000) / 1000 })
+                }
+              />
+            </div>
+          </label>
+        </>
+      )}
     </div>
   )
 }

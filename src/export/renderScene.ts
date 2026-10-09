@@ -1,6 +1,10 @@
 import Konva from 'konva'
 import type { Layer, PosterDoc } from '../types/poster'
 import { renderGenerator } from '../generators/runtime'
+import { measureTextHeight } from '../canvas/textMetrics'
+import { evaluateLayer } from '../animation/evaluate'
+import { contextFor } from '../animation/timing'
+import { animatedGroupConfig } from '../render/transform'
 import {
   bitmapConfig,
   borderConfig,
@@ -45,7 +49,7 @@ function buildShape(
           new Konva.Rect(
             borderConfig(
               layer.width,
-              text.height(),
+              measureTextHeight(layer, layer.width),
               border.stroke,
               border.strokeWidth,
               border.strokeStyle,
@@ -96,13 +100,15 @@ function buildShape(
 
 /**
  * Render the whole poster to a fresh canvas at `artboard * pixelRatio`, at the
- * given time t. Used for crisp PNG/JPG export and per-frame MP4 capture.
- * Excludes the transformer and view transform entirely.
+ * given time t (or, with `rest`, in its final un-animated state). Used for crisp
+ * PNG/JPG export, thumbnails and per-frame MP4 capture. Excludes the transformer
+ * and view transform entirely.
  */
 export async function renderSceneToCanvas(
   doc: PosterDoc,
   t: number,
   pixelRatio: number,
+  { rest = false }: { rest?: boolean } = {},
 ): Promise<HTMLCanvasElement> {
   const { width: W, height: H, background } = doc.artboard
 
@@ -134,12 +140,16 @@ export async function renderSceneToCanvas(
 
   layer.add(new Konva.Rect({ x: 0, y: 0, width: W, height: H, fill: background }))
 
+  const animCtx = contextFor(doc.timeline, rest)
+
   for (const l of doc.layers) {
     if (!l.visible) continue
     const shape = buildShape(l, t, pixelRatio, images)
     if (!shape) continue
     const group = new Konva.Group(layerGroupConfig(l))
-    group.add(shape)
+    const inner = new Konva.Group(animatedGroupConfig(l, evaluateLayer(l, t, animCtx)))
+    inner.add(shape)
+    group.add(inner)
     layer.add(group)
   }
 

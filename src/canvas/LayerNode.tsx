@@ -1,9 +1,16 @@
+import { useLayoutEffect, useRef } from 'react'
 import type Konva from 'konva'
 import { Ellipse, Group, Image as KonvaImage, Rect, Text } from 'react-konva'
 import type { GeneratorLayer, ImageLayer, Layer, StrokeStyle } from '../types/poster'
 import { useImage } from './useImage'
 import { GeneratorContent } from './GeneratorContent'
 import { measureTextHeight } from './textMetrics'
+import { useEditor } from '../store/editor'
+import { useTimeline } from '../store/timeline'
+import { useUI } from '../store/ui'
+import { evaluateLayer, hasActiveAnimations } from '../animation/evaluate'
+import { contextFor } from '../animation/timing'
+import { animatedGroupConfig } from '../render/transform'
 import {
   bitmapConfig,
   borderConfig,
@@ -65,6 +72,56 @@ export function LayerNode({
   onChange,
   onStartEdit,
 }: Props) {
+  const outerRef = useRef<Konva.Group>(null)
+  const innerRef = useRef<Konva.Group>(null)
+
+  // Animated values live on the inner group (docs/adr/0003). Only layers with
+  // an active animation subscribe to the clock, so static layers don't re-render.
+  const animated = hasActiveAnimations(layer)
+  const time = useTimeline((s) => (animated ? s.time : 0))
+  const timeline = useEditor((s) => s.doc?.timeline)
+  const showRest = useUI((s) => s.showRest)
+  const frame =
+    animated && timeline
+      ? evaluateLayer(layer, time, contextFor(timeline, showRest))
+      : undefined
+
+  // The Transformer sizes its box from the node's content. Measure the content
+  // as authored (ignoring the inner animation transform) so the selection box
+  // stays put — and never collapses to nothing at scale 0 — while a layer animates.
+  useLayoutEffect(() => {
+    const outer = outerRef.current
+    const inner = innerRef.current
+    if (!outer || !inner) return
+    const base = outer.getClientRect.bind(outer)
+    outer.getClientRect = (config) => {
+      if (!config?.skipTransform) return base(config)
+      let minX = Infinity
+      let minY = Infinity
+      let maxX = -Infinity
+      let maxY = -Infinity
+      for (const child of inner.getChildren()) {
+        if (!child.visible()) continue
+        const r = child.getClientRect({
+          relativeTo: inner,
+          skipShadow: config.skipShadow,
+          skipStroke: config.skipStroke,
+        })
+        if (r.width === 0 && r.height === 0) continue
+        minX = Math.min(minX, r.x)
+        minY = Math.min(minY, r.y)
+        maxX = Math.max(maxX, r.x + r.width)
+        maxY = Math.max(maxY, r.y + r.height)
+      }
+      return minX === Infinity
+        ? { x: 0, y: 0, width: 0, height: 0 }
+        : { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+    }
+    return () => {
+      outer.getClientRect = base
+    }
+  }, [])
+
   const handleSelect = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     e.cancelBubble = true
     onSelect(layer.id, e.evt.shiftKey)
@@ -112,6 +169,7 @@ export function LayerNode({
 
   return (
     <Group
+      ref={outerRef}
       id={layer.id}
       name="layer"
       {...layerGroupConfig(layer)}
@@ -179,7 +237,9 @@ export function LayerNode({
         })
       }}
     >
-      {content()}
+      <Group ref={innerRef} {...animatedGroupConfig(layer, frame)}>
+        {content()}
+      </Group>
     </Group>
   )
 }

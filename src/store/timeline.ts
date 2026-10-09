@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useUI } from './ui'
 
 interface TimelineState {
   time: number // seconds
@@ -8,10 +9,14 @@ interface TimelineState {
   toggle: () => void
 }
 
-export const useTimeline = create<TimelineState>((set) => ({
+export const useTimeline = create<TimelineState>((set, get) => ({
   time: 0,
   playing: false,
   setTime: (time) => set({ time }),
-  setPlaying: (playing) => set({ playing }),
-  toggle: () => set((s) => ({ playing: !s.playing })),
+  setPlaying: (playing) => {
+    // Playing shows real motion, so leave the "rest state" preview.
+    if (playing) useUI.getState().setShowRest(false)
+    set({ playing })
+  },
+  toggle: () => get().setPlaying(!get().playing),
 }))

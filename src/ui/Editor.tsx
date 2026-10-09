@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { ChevronLeft, Redo2, Undo2 } from 'lucide-react'
 import { CanvasStage } from '../canvas/CanvasStage'
-import { captureStageDataURL } from '../canvas/stageHandle'
+import { renderThumbnail } from '../export/thumbnail'
 import { savePoster } from '../api/posters'
 import { useEditor } from '../store/editor'
 import { useUI } from '../store/ui'
@@ -29,10 +29,9 @@ export function Editor() {
 
   if (!doc) return null
 
-  const back = () => {
-    const pixelRatio = Math.min(1, 360 / doc.artboard.width)
-    const thumb = captureStageDataURL(doc, { pixelRatio })
-    savePoster(doc, thumb || undefined)
+  const back = async () => {
+    // Save first so the gallery lists the fresh thumbnail.
+    await savePoster(doc, await renderThumbnail(doc))
     setView('gallery')
   }
 
@@ -87,7 +86,7 @@ export function Editor() {
             <Toolbar />
           </div>
           <CanvasStage />
-          <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2">
+          <div className="absolute bottom-3 left-1/2 z-10 max-w-[calc(100%-1.5rem)] -translate-x-1/2">
             <TimelineBar />
           </div>
         </main>
