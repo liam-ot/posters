@@ -1,0 +1,14 @@
+node_modules
+dist
+data
+*.local
+
+# Generated poster exports land in the project root
+*.png
+*.jpg
+*.jpeg
+*.mp4
+
+# Logs / OS cruft
+*.log
+.DS_Store
