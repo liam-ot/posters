@@ -558,11 +558,31 @@ playback/export reflect the changes.
   `sourceSvg`). A 1,500-path layer is ~570 KB of JSON.
 - Open question for the user: build Tier 3 (clipPath, embedded data-URL images)? Both are currently skipped with a warning.
 
+**Phase 4**
+- Built: `drawOn`, `pathFade`, `wobble`, `dashFlow` (`src/animation/pathPresets.ts`), per-path `PathFrame`s in
+  `LayerFrame.paths`, `applyPathFrames`, dash reveal (`dash.ts`), stagger + ordering (`stagger.ts`), path wobble
+  (`wobble.ts`, uses `svgpath`), Konva-backed `getPathInfos`, menu filtering so only svg/shape layers are offered them.
+  72 new tests (250 total). New ADR-0011.
+- **Change agreed with the user before building:** draw-on on an already dashed/dotted stroke reveals the pattern
+  dot by dot (instead of "draw-on wins while animating", which would have drawn a line that turned into dots).
+  Included in Phase 4's scope; documented in ADR-0011.
+- Bugs found and fixed by the new tests/probes: (1) a zero-length dot at the very start of a pattern was skipped by the
+  reveal; (2) `simplex-noise` 4D is discontinuous at exact lattice points, so frame 0 differed from its neighbours —
+  loop noise now starts at an irrational phase/offset (also fixes jitter).
+- Verified in the app: 74-dot dotted spiral draws dot by dot (count 0→8→19→37→55→71→74, never decreasing), final frame
+  pixel-identical to the resting layer; 5 SVGs × {draw-on fill-after+outline, fill-with ltr, fade paths + rise, draw-off}:
+  settled frame == rest == unanimated, mid-frames differ; wobble, boil and dash flow end exactly where they begin; live ==
+  export (0 px) at 6 times on a 5-layer poster using all four presets with in/out composition; selection box constant;
+  a real MP4 (50 frames) shows the animation; saved posters still hash identically.
+- Selection box for shape/svg layers is now simply the layer box (ADR-0003).
+- Not verified: live-editor playback speed with *wobble* on a very large SVG (it regenerates every path each frame).
+- Still open: Tier 3 SVG import (clipPath, embedded images) — needs the user's go-ahead.
+
 ## 8. Progress
 
 - [x] Phase 0 — Groundwork (done; awaiting user review)
 - [x] Phase 1 — Animation engine + generic presets (done; awaiting user review)
 - [x] Phase 2 — Path rendering + shape library (done; awaiting user review)
 - [x] Phase 3 — SVG import (done; awaiting user review) — stretch (clipPath, embedded images) NOT done, needs the user's go-ahead
-- [ ] Phase 4 — Path-level animation presets
+- [x] Phase 4 — Path-level animation presets (done; awaiting user review)
 - [ ] Phase 5 — Timeline panel

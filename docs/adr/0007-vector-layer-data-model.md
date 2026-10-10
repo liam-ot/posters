@@ -41,6 +41,10 @@ Implementation notes (Phase 2):
 - `Paint` includes linear and radial gradients and the renderer already maps them (`render/paint.ts`); the SVG
   importer in Phase 3 only has to produce them. Konva has no radial *stroke* gradient, so that case falls back to the first stop.
 
+- `VectorPath` gained an optional `dashOffset` (Phase 4): a revealed dashed stroke may need a negative offset
+  (see [ADR-0011](0011-path-level-animation-and-dash-reveal.md)). Path presets don't change stored paths; they produce
+  derived, animated copies at render time.
+
 ## Alternatives considered
 
 | Option | Why not |

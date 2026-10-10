@@ -176,10 +176,12 @@ function AnimationRow({
 
 function AddMenu({
   phase,
+  layerType,
   disabled,
   onAdd,
 }: {
   phase: AnimationPhase
+  layerType: string
   disabled: boolean
   onAdd: (preset: LayerAnimation['preset']) => void
 }) {
@@ -200,7 +202,7 @@ function AddMenu({
           sideOffset={6}
           className="z-50 min-w-36 rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] p-1 shadow-2xl"
         >
-          {presetsFor(phase).map((d) => (
+          {presetsFor(phase, layerType).map((d) => (
             <DropdownMenu.Item
               key={d.id}
               onSelect={() => onAdd(d.id)}
@@ -241,6 +243,7 @@ export function AnimationSection({
               </span>
               <AddMenu
                 phase={phase}
+                layerType={layer.type}
                 disabled={full}
                 onAdd={(preset) => {
                   const a = createAnimation(preset, phase, nanoid(8))

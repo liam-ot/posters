@@ -41,6 +41,9 @@ both the app and the local file API — there is no separate backend.
     a warning, with a "use flat image instead" option.
   - **Animation:** every layer can have an *in*, an *out* and any number of *loop*
     animations (fade, slide, scale, rotate, pulse, float, spin, sway, jitter, blink).
+    Shapes and SVGs also get path-level ones: **draw on** (strokes trace in, dotted and
+    dashed strokes appear dot by dot, filled logos outline then fill, with stagger and
+    ordering), **fade paths**, **wobble** and **dash flow**.
     Set a BPM in the timeline bar to time loops to beats or bars. The eye button
     shows the finished poster ("rest state"); PNG/JPG exports and gallery thumbnails
     use it by default.

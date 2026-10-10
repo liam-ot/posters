@@ -2,7 +2,9 @@ import type { PathConfig } from 'konva/lib/shapes/Path'
 import type { ShapeLayer, SvgLayer, VectorPath } from '../types/poster'
 import { generateShape, SHAPES } from '../shapes/library'
 import { strokeDash } from '../canvas/stroke'
+import type { PathFrame, PathInfo } from '../animation/types'
 import { decomposeMatrix, multiply } from './matrix'
+import { applyPathFrames } from './pathFrames'
 import { paintProps } from './paint'
 
 /**
@@ -79,6 +81,7 @@ export function pathConfig(path: VectorPath): PathConfig {
     lineJoin: path.lineJoin,
     miterLimit: path.miterLimit,
     dash: path.dash,
+    dashOffset: path.dashOffset,
     fillRule: path.fillRule,
     opacity: path.opacity,
   } as PathConfig
@@ -89,9 +92,16 @@ export interface PathNode {
   config: PathConfig
 }
 
-/** Visible paths of a layer as ready-to-render Konva.Path configs. */
-export function pathNodeConfigs(layer: ShapeLayer | SvgLayer): PathNode[] {
-  return getLayerPaths(layer)
+/**
+ * Visible paths of a layer as ready-to-render Konva.Path configs. With per-path
+ * animation `frames` (and the paths' measured `infos`) they are animated first.
+ */
+export function pathNodeConfigs(
+  layer: ShapeLayer | SvgLayer,
+  frames?: PathFrame[],
+  infos: PathInfo[] = [],
+): PathNode[] {
+  return applyPathFrames(getLayerPaths(layer), frames, infos)
     .filter((p) => p.visible)
     .map((p) => ({ key: p.id, config: pathConfig(p) }))
 }

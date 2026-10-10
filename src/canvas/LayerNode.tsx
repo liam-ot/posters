@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import type Konva from 'konva'
 import { Ellipse, Group, Image as KonvaImage, Rect, Text } from 'react-konva'
 import type { GeneratorLayer, ImageLayer, Layer, StrokeStyle } from '../types/poster'
@@ -10,6 +10,8 @@ import { useEditor } from '../store/editor'
 import { useTimeline } from '../store/timeline'
 import { useUI } from '../store/ui'
 import { evaluateLayer, hasActiveAnimations } from '../animation/evaluate'
+import { hasPathPresets } from '../animation/presets'
+import { getPathInfos, isPathLayer } from '../render/pathInfo'
 import { contextFor } from '../animation/timing'
 import { animatedGroupConfig } from '../render/transform'
 import {
@@ -75,6 +77,8 @@ export function LayerNode({
 }: Props) {
   const outerRef = useRef<Konva.Group>(null)
   const innerRef = useRef<Konva.Group>(null)
+  const layerRef = useRef(layer)
+  layerRef.current = layer
 
   // Animated values live on the inner group (docs/adr/0003). Only layers with
   // an active animation subscribe to the clock, so static layers don't re-render.
@@ -82,9 +86,14 @@ export function LayerNode({
   const time = useTimeline((s) => (animated ? s.time : 0))
   const timeline = useEditor((s) => s.doc?.timeline)
   const showRest = useUI((s) => s.showRest)
+  // Path-level presets need each path's measured length/centre (cached per layer).
+  const pathInfos = useMemo(
+    () => (isPathLayer(layer) && hasPathPresets(layer) ? getPathInfos(layer) : undefined),
+    [layer],
+  )
   const frame =
     animated && timeline
-      ? evaluateLayer(layer, time, contextFor(timeline, showRest))
+      ? evaluateLayer(layer, time, contextFor(timeline, showRest), pathInfos)
       : undefined
 
   // The Transformer sizes its box from the node's content. Measure the content
@@ -97,6 +106,10 @@ export function LayerNode({
     const base = outer.getClientRect.bind(outer)
     outer.getClientRect = (config) => {
       if (!config?.skipTransform) return base(config)
+      // Vector layers: the layer box. Their geometry can change every frame (wobble)
+      // and the box is what the Inspector's W/H describe, so measuring the ink would jitter.
+      const l = layerRef.current
+      if (l.type === 'shape' || l.type === 'svg') return { x: 0, y: 0, width: l.width, height: l.height }
       let minX = Infinity
       let minY = Infinity
       let maxX = -Infinity
@@ -167,7 +180,7 @@ export function LayerNode({
         return <GeneratorContent layer={layer as GeneratorLayer} />
       case 'shape':
       case 'svg':
-        return <PathsContent layer={layer} />
+        return <PathsContent layer={layer} frames={frame?.paths} />
     }
   }
 

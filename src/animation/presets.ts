@@ -7,6 +7,7 @@ import type {
 import type { ParamControl, ParamValue } from '../generators/config'
 import { loopNoise } from './noise'
 import { cycleOf } from './timing'
+import { pathPresetDefs } from './pathPresets'
 import type { LayerFrame, Params, PresetInput } from './types'
 
 export interface AnimationPresetDef {
@@ -262,6 +263,8 @@ const defs: AnimationPresetDef[] = [
   },
 ]
 
+defs.push(...pathPresetDefs)
+
 export const PRESETS = Object.fromEntries(defs.map((d) => [d.id, d])) as Record<
   AnimationPresetId,
   AnimationPresetDef
@@ -269,10 +272,17 @@ export const PRESETS = Object.fromEntries(defs.map((d) => [d.id, d])) as Record<
 
 export const PRESET_LIST = defs
 
-/** Presets that can be added to a layer in a given phase. */
-export function presetsFor(phase: AnimationPhase): AnimationPresetDef[] {
-  // Path presets join the list in Phase 4 once svg/shape layers exist.
-  return defs.filter((d) => d.appliesTo === 'all' && d.phases.includes(phase))
+/** Presets that can be added to a layer in a given phase. Path presets only apply to svg/shape layers. */
+export function presetsFor(phase: AnimationPhase, layerType?: string): AnimationPresetDef[] {
+  const pathLayer = layerType === 'svg' || layerType === 'shape'
+  return defs.filter(
+    (d) => d.phases.includes(phase) && (d.appliesTo === 'all' || pathLayer),
+  )
+}
+
+/** Does this layer have an enabled path-level animation (one that needs measured path info)? */
+export function hasPathPresets(layer: { animations?: LayerAnimation[] }): boolean {
+  return !!layer.animations?.some((a) => a.enabled && PRESETS[a.preset]?.appliesTo === 'paths')
 }
 
 /** A new animation with the preset's defaults. Params stay sparse (merged with defaults at eval). */

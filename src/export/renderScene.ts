@@ -4,6 +4,9 @@ import { renderGenerator } from '../generators/runtime'
 import { measureTextHeight } from '../canvas/textMetrics'
 import { pathNodeConfigs } from '../render/paths'
 import { evaluateLayer } from '../animation/evaluate'
+import { hasPathPresets } from '../animation/presets'
+import type { PathFrame } from '../animation/types'
+import { getPathInfos, isPathLayer } from '../render/pathInfo'
 import { contextFor } from '../animation/timing'
 import { animatedGroupConfig } from '../render/transform'
 import {
@@ -34,6 +37,7 @@ function buildShape(
   t: number,
   pixelRatio: number,
   images: Map<string, HTMLImageElement>,
+  pathFrames?: PathFrame[],
 ): Konva.Shape | Konva.Group | null {
   switch (layer.type) {
     case 'rect':
@@ -87,7 +91,8 @@ function buildShape(
     case 'shape':
     case 'svg': {
       const group = new Konva.Group()
-      for (const p of pathNodeConfigs(layer)) group.add(new Konva.Path(p.config))
+      const infos = pathFrames ? getPathInfos(layer) : undefined
+      for (const p of pathNodeConfigs(layer, pathFrames, infos)) group.add(new Konva.Path(p.config))
       return group
     }
     case 'generator': {
@@ -151,10 +156,14 @@ export async function renderSceneToCanvas(
 
   for (const l of doc.layers) {
     if (!l.visible) continue
-    const shape = buildShape(l, t, pixelRatio, images)
+    // Evaluate first: path presets need the layer's measured paths, and the
+    // resulting per-path state feeds the shape builder.
+    const infos = isPathLayer(l) && hasPathPresets(l) ? getPathInfos(l) : undefined
+    const frame = evaluateLayer(l, t, animCtx, infos)
+    const shape = buildShape(l, t, pixelRatio, images, frame.paths)
     if (!shape) continue
     const group = new Konva.Group(layerGroupConfig(l))
-    const inner = new Konva.Group(animatedGroupConfig(l, evaluateLayer(l, t, animCtx)))
+    const inner = new Konva.Group(animatedGroupConfig(l, frame))
     inner.add(shape)
     group.add(inner)
     layer.add(group)

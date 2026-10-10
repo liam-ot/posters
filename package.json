@@ -41,6 +41,7 @@
     "react-dom": "^19.2.7",
     "react-konva": "^19.2.5",
     "simplex-noise": "^4.0.3",
+    "svgpath": "^2.6.0",
     "zundo": "^2.3.0",
     "zustand": "^5.0.14"
   },

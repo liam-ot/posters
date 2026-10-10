@@ -42,6 +42,10 @@ export type AnimationPresetId =
   | 'sway'
   | 'jitter'
   | 'blink'
+  | 'drawOn'
+  | 'pathFade'
+  | 'wobble'
+  | 'dashFlow'
 
 export interface LayerAnimation {
   id: string
@@ -168,6 +172,7 @@ export interface VectorPath {
   lineJoin: 'miter' | 'round' | 'bevel'
   miterLimit: number
   dash?: number[]
+  dashOffset?: number
   fillRule: 'nonzero' | 'evenodd'
   opacity: number
   visible: boolean

@@ -1,7 +1,9 @@
 import { memo, useMemo } from 'react'
 import { Path, Rect } from 'react-konva'
 import type { ShapeLayer, SvgLayer } from '../types/poster'
+import type { PathFrame } from '../animation/types'
 import { pathNodeConfigs } from '../render/paths'
+import { getPathInfos } from '../render/pathInfo'
 
 /**
  * Vector content of a shape or SVG layer. The transparent rect gives the layer a
@@ -11,14 +13,20 @@ import { pathNodeConfigs } from '../render/paths'
  *
  * Memoised on the layer object: while a layer animates, its parent re-renders
  * every frame with only the inner group's transform changing, and rebuilding
- * (and diffing) hundreds of path nodes each frame made big SVGs unusable.
+ * (and diffing) hundreds of path nodes each frame was wasted work. Layers with
+ * path-level animation pass new `frames` every tick and so do re-render.
  */
 export const PathsContent = memo(function PathsContent({
   layer,
+  frames,
 }: {
   layer: ShapeLayer | SvgLayer
+  frames?: PathFrame[]
 }) {
-  const paths = useMemo(() => pathNodeConfigs(layer), [layer])
+  const paths = useMemo(
+    () => pathNodeConfigs(layer, frames, frames ? getPathInfos(layer) : undefined),
+    [layer, frames],
+  )
   return (
     <>
       <Rect width={layer.width} height={layer.height} fill="rgba(0,0,0,0)" />

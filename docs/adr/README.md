@@ -19,3 +19,4 @@ When a decision changes, don't edit the old ADR: add a new one and mark the old 
 | [0008](0008-svg-import-strategy.md) | SVG import via the browser DOM, sanitised, with tiered fidelity | Accepted |
 | [0009](0009-schema-compatibility.md) | Schema compatibility: optional fields + `normalizeDoc` | Accepted |
 | [0010](0010-testing-strategy.md) | Testing strategy: unit-test pure modules with Vitest | Accepted |
+| [0011](0011-path-level-animation-and-dash-reveal.md) | Path-level animation: per-path frames and revealing dashed strokes | Accepted |

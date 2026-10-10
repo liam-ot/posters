@@ -195,7 +195,9 @@ describe('seamless loops (adr-0004)', () => {
       const l = layer([anim(id, 'loop', { period, periodUnit: 'sec' })])
       const a = evaluateLayer(l, 0, ctx)
       const b = evaluateLayer(l, ctx.duration, ctx)
-      for (const k of Object.keys(a) as (keyof typeof a)[]) expect(b[k]).toBeCloseTo(a[k], 6)
+      for (const k of Object.keys(a) as (keyof typeof a)[]) {
+        if (k !== 'paths') expect(b[k] as number).toBeCloseTo(a[k] as number, 6)
+      }
     })
   }
 

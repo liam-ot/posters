@@ -8,28 +8,33 @@ import {
   periodSeconds,
   type EvalContext,
 } from './timing'
-import { identityFrame, type LayerFrame } from './types'
+import { identityFrame, identityPathFrame, type LayerFrame, type PathInfo } from './types'
 
 export function hasActiveAnimations(layer: Layer): boolean {
   return !!layer.animations?.some((a) => a.enabled)
 }
 
 /**
- * Presence of an in/out animation: 0 = hidden … 1 = at rest. Out plays the in
- * curve backwards (`ease(1 - q)`), so a preset only defines one curve.
+ * Linear progress (0..1, before easing) of an in/out animation, where 1 = at
+ * rest. Out is the time-mirror of in, so it counts down from 1.
  */
-function presence(a: LayerAnimation, t: number, ctx: EvalContext): number {
+function progress(a: LayerAnimation, t: number, ctx: EvalContext): number {
   if (ctx.rest) return 1
   const { start, end } = animationWindow(a, ctx)
   const q = end > start ? Math.min(1, Math.max(0, (t - start) / (end - start))) : t >= end ? 1 : 0
-  return a.phase === 'out' ? ease(a.easing, 1 - q) : ease(a.easing, q)
+  return a.phase === 'out' ? 1 - q : q
 }
 
 /**
  * The animated state of a layer at time t — a pure function of its inputs
  * (docs/adr/0004). In rest state every in/out is complete and loops are skipped.
  */
-export function evaluateLayer(layer: Layer, t: number, ctx: EvalContext): LayerFrame {
+export function evaluateLayer(
+  layer: Layer,
+  t: number,
+  ctx: EvalContext,
+  infos: PathInfo[] = [],
+): LayerFrame {
   const frame = identityFrame()
   for (const a of layer.animations ?? []) {
     if (!a.enabled) continue
@@ -37,12 +42,19 @@ export function evaluateLayer(layer: Layer, t: number, ctx: EvalContext): LayerF
     if (!def) continue
     const params = { ...def.defaults, ...a.params }
     const seed = hashSeed(layer.id + a.id)
+    // Path presets need the layer's measured paths; without them there is nothing to animate.
+    if (def.appliesTo === 'paths') {
+      if (infos.length === 0) continue
+      frame.paths ??= infos.map(identityPathFrame)
+    }
+    const easeFn = (x: number) => ease(a.easing, x)
     if (a.phase === 'loop') {
       if (ctx.rest) continue
       const period = periodSeconds(a, ctx)
-      def.apply(frame, { p: 1, cycle: cycleOf(t, period), t, period, params, layer, seed })
+      def.apply(frame, { p: 1, cycle: cycleOf(t, period), t, period, params, layer, seed, u: 1, ease: easeFn, infos })
     } else {
-      def.apply(frame, { p: presence(a, t, ctx), cycle: 0, t, period: 1, params, layer, seed })
+      const u = progress(a, t, ctx)
+      def.apply(frame, { p: ease(a.easing, u), cycle: 0, t, period: 1, params, layer, seed, u, ease: easeFn, infos })
     }
   }
   return frame

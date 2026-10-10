@@ -40,6 +40,9 @@ static layers do not re-render per frame.
   animation and collapse to nothing at scale 0. `LayerNode` therefore overrides the outer group's `getClientRect`
   (for the `skipTransform` call the Transformer makes) to measure the content relative to the inner group. Verified:
   the box is identical at every time and in rest state.
+- **Vector layers (shape/svg)** return their layer box (0,0,w,h) instead of measuring children. Their geometry can change
+  every frame (wobble), which would make the box jitter, and the box is what the Inspector's W/H describe. (This also
+  avoids measuring thousands of child paths.)
 - (-) One extra node per layer. Every layer gets the inner group (identity when not animated) so the React tree stays
   stable when animations are added or removed; an identity group renders pixel-identically (checked against saved posters).
 - (-) Drag-snapping to the artboard centre still measures the visual bounds (`getClientRect` without `skipTransform`),
