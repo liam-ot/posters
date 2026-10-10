@@ -32,7 +32,18 @@ both the app and the local file API — there is no separate backend.
   you edit (a thumbnail is regenerated on each save).
 - **Editor** — a Konva-powered canvas with move/resize/rotate handles, a layers
   panel, and an inspector.
-  - **Toolbar:** rectangle, ellipse, text, image, and generative effects.
+  - **Toolbar:** rectangle, ellipse, text, image, shapes, and generative effects.
+  - **Shapes:** 12 parametric shapes (star, polygon, burst, ring, arrow, squiggle,
+    wave, spiral…) with sliders for fill, stroke, dashes and caps.
+  - **SVG:** choosing an `.svg` in the Image tool imports it as editable vectors —
+    recolour from a palette of its colours, hide or restyle individual paths.
+    Features that aren't supported yet (filters, masks, text, patterns…) are listed in
+    a warning, with a "use flat image instead" option.
+  - **Animation:** every layer can have an *in*, an *out* and any number of *loop*
+    animations (fade, slide, scale, rotate, pulse, float, spin, sway, jitter, blink).
+    Set a BPM in the timeline bar to time loops to beats or bars. The eye button
+    shows the finished poster ("rest state"); PNG/JPG exports and gallery thumbnails
+    use it by default.
   - **Generators:** _Noise_ (simplex), _Static_ (TV snow), and _Pattern_
     (stripes/dots/grid/checker/waves). Mark a generator **Animated** and use the
     timeline (bottom) to play/scrub. Compose layers with opacity and blend modes.

@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import {
   Circle,
@@ -15,6 +15,8 @@ import { useEditor } from '../store/editor'
 import { useUI } from '../store/ui'
 import type { GeneratorKind } from '../types/poster'
 import { ShapeLibraryMenu } from './ShapeLibraryMenu'
+import { SvgImportDialog, type PendingSvg } from './SvgImportDialog'
+import { flatImageUrl, importSvg } from '../svg/parse'
 
 function ToolButton({
   label,
@@ -40,8 +42,29 @@ export function Toolbar() {
   const addLayer = useEditor((s) => s.addLayer)
   const requestFit = useUI((s) => s.requestFit)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [pendingSvg, setPendingSvg] = useState<PendingSvg | null>(null)
+
+  const addSvgVector = (result: NonNullable<PendingSvg['result']>) => addLayer('svg', { svg: result })
+
+  const onPickSvg = async (file: File) => {
+    try {
+      const result = importSvg(await file.text(), file.name)
+      // Clean imports go straight in; anything skipped asks first.
+      if (result.warnings.length === 0) addSvgVector(result)
+      else setPendingSvg({ fileName: file.name, result })
+    } catch (e) {
+      setPendingSvg({
+        fileName: file.name,
+        error: e instanceof Error ? e.message : 'Unknown error.',
+      })
+    }
+  }
 
   const onPickImage = (file: File) => {
+    if (file.type === 'image/svg+xml' || /\.svg$/i.test(file.name)) {
+      void onPickSvg(file)
+      return
+    }
     const reader = new FileReader()
     reader.onload = () => {
       const src = reader.result as string
@@ -117,12 +140,37 @@ export function Toolbar() {
       <input
         ref={fileRef}
         type="file"
-        accept="image/*"
+        accept="image/*,.svg"
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0]
           if (f) onPickImage(f)
           e.target.value = ''
+        }}
+      />
+
+      <SvgImportDialog
+        pending={pendingSvg}
+        onClose={() => setPendingSvg(null)}
+        onKeepVector={() => {
+          if (pendingSvg?.result) addSvgVector(pendingSvg.result)
+          setPendingSvg(null)
+        }}
+        onFlatImage={() => {
+          const r = pendingSvg?.result
+          if (r) {
+            // Same size the vector import would get (fit within 80% of the artboard).
+            const ab = useEditor.getState().doc?.artboard
+            const k = ab
+              ? Math.min((ab.width * 0.8) / r.viewBox.width, (ab.height * 0.8) / r.viewBox.height)
+              : 1
+            addLayer('image', {
+              src: flatImageUrl(r.sourceSvg, r.viewBox),
+              naturalWidth: Math.round(r.viewBox.width * k),
+              naturalHeight: Math.round(r.viewBox.height * k),
+            })
+          }
+          setPendingSvg(null)
         }}
       />
     </div>

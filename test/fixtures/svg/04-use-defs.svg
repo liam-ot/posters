@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="300" height="200" viewBox="0 0 150 100">
+  <defs>
+    <path id="leaf" d="M0 0 C 10 -20 30 -20 40 0 C 30 20 10 20 0 0 Z"/>
+    <g id="pair"><circle cx="0" cy="0" r="8"/><circle cx="14" cy="0" r="8"/></g>
+    <symbol id="sym"><rect width="20" height="20"/><circle cx="20" cy="20" r="6"/></symbol>
+  </defs>
+  <use href="#leaf" x="10" y="30" fill="#2a9d8f"/>
+  <use href="#leaf" x="60" y="30" fill="#e63946" transform="rotate(20 60 30)"/>
+  <use xlink:href="#pair" x="30" y="75" fill="#8338ec"/>
+  <use href="#sym" x="100" y="10" fill="#f4a261"/>
+  <g fill="#3a86ff"><use href="#pair" x="110" y="75"/></g>
+</svg>

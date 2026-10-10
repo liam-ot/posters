@@ -7,6 +7,7 @@ import type {
   PosterDoc,
   ShapeKind,
 } from '../types/poster'
+import type { SvgImport } from '../svg/parse'
 import { defaultParams } from '../generators/config'
 import { SHAPES, defaultShapeParams } from '../shapes/library'
 import { measureTextNatural } from '../canvas/textMetrics'
@@ -41,6 +42,7 @@ let createdCount = 0
 interface CreateOpts {
   generator?: GeneratorKind
   shape?: ShapeKind
+  svg?: Pick<SvgImport, 'name' | 'viewBox' | 'paths' | 'sourceSvg' | 'warnings'>
   src?: string
   naturalWidth?: number
   naturalHeight?: number
@@ -158,6 +160,28 @@ export function createLayer(
         stroke: def.line ? color : null,
         strokeWidth: def.line ? 8 : 0,
         strokeStyle: 'solid',
+      }
+    }
+    case 'svg': {
+      const svg = opts.svg!
+      // Fit within 80% of the artboard, keeping the SVG's own proportions.
+      const scale = Math.min(
+        (artboard.width * 0.8) / svg.viewBox.width,
+        (artboard.height * 0.8) / svg.viewBox.height,
+      )
+      const width = Math.max(10, Math.round(svg.viewBox.width * scale))
+      const height = Math.max(10, Math.round(svg.viewBox.height * scale))
+      return {
+        ...base,
+        ...center(width, height),
+        type: 'svg',
+        name: svg.name,
+        width,
+        height,
+        viewBox: svg.viewBox,
+        paths: svg.paths,
+        sourceSvg: svg.sourceSvg,
+        importWarnings: svg.warnings,
       }
     }
     case 'generator': {

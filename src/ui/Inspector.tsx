@@ -18,6 +18,7 @@ import { FontPicker } from './FontPicker'
 import { ParamControls } from './ParamControls'
 import { AnimationSection } from './AnimationSection'
 import { ShapeSection } from './ShapeSection'
+import { SvgSection } from './SvgSection'
 
 const BLEND_MODES: { value: BlendMode; label: string }[] = [
   { value: 'source-over', label: 'Normal' },
@@ -372,6 +373,8 @@ function TypeSection({
       return <GeneratorSection layer={layer} patch={patch} />
     case 'shape':
       return <ShapeSection layer={layer} patch={patch} />
+    case 'svg':
+      return <SvgSection layer={layer} patch={patch} />
     default:
       return null
   }

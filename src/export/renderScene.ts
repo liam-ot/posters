@@ -84,7 +84,8 @@ function buildShape(
       }
       return image
     }
-    case 'shape': {
+    case 'shape':
+    case 'svg': {
       const group = new Konva.Group()
       for (const p of pathNodeConfigs(layer)) group.add(new Konva.Path(p.config))
       return group

@@ -532,11 +532,37 @@ playback/export reflect the changes.
 - Not done / for Phase 4: path-level presets (draw-on, wobble…) and `LayerFrame.paths`; `pathPresets` should filter
   with `appliesTo: 'paths'` in `presetsFor` (currently a comment).
 
+**Phase 3**
+- Built: sanitiser (pure rules + DOM walk), isolated-iframe importer (`src/svg/`), colour parsing, shape-to-path conversion,
+  gradient resolver, palette (swatches + recolour), `svg` layer type, import warning dialog (keep vector / flat image /
+  error), Inspector SVG section (palette, reset, path list with visibility/fill/stroke/width), toolbar routing for `.svg`.
+  33 new unit tests (178 total). 10 hand-written fixtures in `test/fixtures/svg/`.
+- Deviations (also in ADR-0008): iframe isolation instead of a hidden div; `svgpath` not added (not needed until Phase 4);
+  `src/svg/matrix.ts` not created (reuses `render/matrix.ts` and the browser's DOMMatrix); hover-highlight of a path on
+  canvas (marked nice-to-have in the plan) not built.
+- Fidelity vs the browser's own rendering of each fixture (pixels differing by >48/255): basic shapes 0.10%, `<style>`
+  classes 0.02%, nested transforms 0.004%, `<use>`/defs/symbol 0%, even-odd 0%, gradients (linear, rotated userSpace,
+  radial, focal, href inheritance, stop/fill opacity, missing-paint fallback) 0%, currentColor 0.15%, stretched to
+  non-uniform sizes 0.002–0.006%. The one visible difference is the group-opacity-overlap approximation (see ADR-0008).
+- Security: hostile fixture ran no script (`window`/`parent`/`top` flags untouched), made no network request (a positive
+  control proved the log catches blocked requests), and the stored source contains no script/handlers/js: URLs/foreignObject/
+  iframe/external URLs/@import/SMIL.
+- Also verified in the app: warning dialog lists skipped features; flat-image fallback matches the vector's size; error
+  dialogs for non-SVG and text-only files; swatch recolour changes every use and undo/reset restore it; live == export at
+  animated frames; selection box constant; save/reload identical.
+- Performance caveat: 1,500 paths import in ~45 ms and export-render in ~80 ms/frame; one animated frame of the live
+  editor (React tick + Konva draw) costs ~7-10 ms. An earlier rAF-based reading of 1.2 fps was taken while the browser pane
+  was backgrounded (throttled) and was not reproducible; real playback fps on a large SVG is **not** verified.
+  `PathsContent` is memoised (7 ms -> 3 ms React tick).
+- Saved size: ~0.4 KB per path (path data + the sanitised source, which is stored twice in effect: parsed paths and
+  `sourceSvg`). A 1,500-path layer is ~570 KB of JSON.
+- Open question for the user: build Tier 3 (clipPath, embedded data-URL images)? Both are currently skipped with a warning.
+
 ## 8. Progress
 
 - [x] Phase 0 — Groundwork (done; awaiting user review)
 - [x] Phase 1 — Animation engine + generic presets (done; awaiting user review)
 - [x] Phase 2 — Path rendering + shape library (done; awaiting user review)
-- [ ] Phase 3 — SVG import (stretch: clipPath, embedded images)
+- [x] Phase 3 — SVG import (done; awaiting user review) — stretch (clipPath, embedded images) NOT done, needs the user's go-ahead
 - [ ] Phase 4 — Path-level animation presets
 - [ ] Phase 5 — Timeline panel

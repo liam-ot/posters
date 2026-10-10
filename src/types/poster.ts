@@ -69,6 +69,7 @@ export type LayerType =
   | 'image'
   | 'generator'
   | 'shape'
+  | 'svg'
 
 export type StrokeStyle = 'solid' | 'dashed' | 'dotted'
 
@@ -198,6 +199,17 @@ export interface ShapeLayer extends BaseLayer {
   lineCap?: 'butt' | 'round' | 'square'
 }
 
+export interface SvgLayer extends BaseLayer {
+  type: 'svg'
+  /** Paths are in this coordinate system; the layer box stretches it (docs/adr/0007). */
+  viewBox: { x: number; y: number; width: number; height: number }
+  paths: VectorPath[]
+  /** Sanitised source, kept for "reset colours" and "use flat image". */
+  sourceSvg: string
+  /** What the importer skipped or approximated. */
+  importWarnings?: string[]
+}
+
 export type Layer =
   | RectLayer
   | EllipseLayer
@@ -205,6 +217,7 @@ export type Layer =
   | ImageLayer
   | GeneratorLayer
   | ShapeLayer
+  | SvgLayer
 
 export interface PosterDoc {
   id: string

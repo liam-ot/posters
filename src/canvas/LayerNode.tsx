@@ -166,6 +166,7 @@ export function LayerNode({
       case 'generator':
         return <GeneratorContent layer={layer as GeneratorLayer} />
       case 'shape':
+      case 'svg':
         return <PathsContent layer={layer} />
     }
   }

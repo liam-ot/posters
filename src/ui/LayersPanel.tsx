@@ -5,6 +5,7 @@ import {
   EyeOff,
   Image as ImageIcon,
   Lock,
+  PenTool,
   Shapes,
   Sparkles,
   Square,
@@ -29,6 +30,8 @@ function LayerIcon({ type }: { type: Layer['type'] }) {
       return <Sparkles {...props} />
     case 'shape':
       return <Shapes {...props} />
+    case 'svg':
+      return <PenTool {...props} />
   }
 }
 

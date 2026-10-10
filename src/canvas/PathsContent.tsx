@@ -1,20 +1,30 @@
+import { memo, useMemo } from 'react'
 import { Path, Rect } from 'react-konva'
-import type { ShapeLayer } from '../types/poster'
+import type { ShapeLayer, SvgLayer } from '../types/poster'
 import { pathNodeConfigs } from '../render/paths'
 
 /**
- * Vector content of a shape layer. The transparent rect gives the layer a
+ * Vector content of a shape or SVG layer. The transparent rect gives the layer a
  * click target and a selection box equal to its full w×h box (a thin squiggle
  * or a star's concave gaps would otherwise be hard to grab). It draws nothing,
  * so it isn't part of the shared render configs.
+ *
+ * Memoised on the layer object: while a layer animates, its parent re-renders
+ * every frame with only the inner group's transform changing, and rebuilding
+ * (and diffing) hundreds of path nodes each frame made big SVGs unusable.
  */
-export function PathsContent({ layer }: { layer: ShapeLayer }) {
+export const PathsContent = memo(function PathsContent({
+  layer,
+}: {
+  layer: ShapeLayer | SvgLayer
+}) {
+  const paths = useMemo(() => pathNodeConfigs(layer), [layer])
   return (
     <>
       <Rect width={layer.width} height={layer.height} fill="rgba(0,0,0,0)" />
-      {pathNodeConfigs(layer).map((p) => (
+      {paths.map((p) => (
         <Path key={p.key} {...p.config} />
       ))}
     </>
   )
-}
+})

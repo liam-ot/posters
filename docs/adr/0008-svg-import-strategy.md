@@ -32,6 +32,29 @@ Anything skipped is **listed in a warning with counts**, and the user can choose
 (today's behaviour). Added beyond competitors: **colour swatches** over the SVG's unique colours (Canva-style),
 because for logos the common edit is swapping a brand colour.
 
+Implementation notes (Phase 3):
+
+- **Isolation:** the SVG is mounted in a hidden `<iframe sandbox="allow-same-origin">`, not in the app's DOM. SVG
+  `<style>` rules are document-global, so mounting inline would let an imported `.cls-1{…}` restyle the app, and the
+  app's Tailwind reset would leak into the SVG's computed styles. The sandbox (no `allow-scripts`) also means no script
+  can run even if the sanitiser missed something.
+- **`<use>`** is expanded into clones before measuring, because the browser doesn't expose a `<use>` shadow tree.
+  `<symbol>` becomes a group; depth is capped to stop cycles.
+- **Gradients** are resolved to coordinates in each path's own space (`objectBoundingBox` via `getBBox`, `href`
+  inheritance, `gradientTransform` applied to the endpoints). Konva draws circular radial gradients and perpendicular
+  linear isolines, so a gradient under a non-similarity transform is *approximated* and listed in the warnings.
+  `spreadMethod` reflect/repeat is drawn as pad (also warned).
+- **Group opacity** is multiplied into each child path. Exact unless siblings overlap, where the overlap blends twice;
+  measured on a fixture as exactly the overlap area (≈1,300 px). An exact version needs group compositing in the model.
+- Stroke-only paths and `visibility:hidden` are kept (hidden ones as `visible:false`); fully invisible paths
+  (no fill and no stroke) are dropped. `display:none` subtrees are skipped.
+- `svgpath` was **not** added: Konva parses all path commands itself, so it's only needed for Phase 4's wobble.
+- Tier 3 (`clipPath`, embedded `<image>`) is **not** implemented; both are reported as ignored/skipped. Needs the user's go-ahead (see plan).
+- Sanitiser: the rules are pure functions with unit tests; the DOM walk is verified against a hostile fixture
+  (`test/fixtures/svg/09-malicious.svg`) — no script ran, no network request was made (checked against a positive
+  control), and the stored source contains none of: script, event handlers, `javascript:`, foreignObject, iframe,
+  external URLs, `@import`, SMIL.
+
 ## Alternatives considered
 
 | Option | Why not |
