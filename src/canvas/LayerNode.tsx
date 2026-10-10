@@ -4,6 +4,7 @@ import { Ellipse, Group, Image as KonvaImage, Rect, Text } from 'react-konva'
 import type { GeneratorLayer, ImageLayer, Layer, StrokeStyle } from '../types/poster'
 import { useImage } from './useImage'
 import { GeneratorContent } from './GeneratorContent'
+import { PathsContent } from './PathsContent'
 import { measureTextHeight } from './textMetrics'
 import { useEditor } from '../store/editor'
 import { useTimeline } from '../store/timeline'
@@ -164,6 +165,8 @@ export function LayerNode({
       }
       case 'generator':
         return <GeneratorContent layer={layer as GeneratorLayer} />
+      case 'shape':
+        return <PathsContent layer={layer} />
     }
   }
 

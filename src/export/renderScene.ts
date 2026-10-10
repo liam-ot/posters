@@ -2,6 +2,7 @@ import Konva from 'konva'
 import type { Layer, PosterDoc } from '../types/poster'
 import { renderGenerator } from '../generators/runtime'
 import { measureTextHeight } from '../canvas/textMetrics'
+import { pathNodeConfigs } from '../render/paths'
 import { evaluateLayer } from '../animation/evaluate'
 import { contextFor } from '../animation/timing'
 import { animatedGroupConfig } from '../render/transform'
@@ -82,6 +83,11 @@ function buildShape(
         return group
       }
       return image
+    }
+    case 'shape': {
+      const group = new Konva.Group()
+      for (const p of pathNodeConfigs(layer)) group.add(new Konva.Path(p.config))
+      return group
     }
     case 'generator': {
       const long = Math.max(layer.width, layer.height) * pixelRatio

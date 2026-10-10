@@ -14,7 +14,8 @@ Two new layer types, one shared path pipeline:
 - `svg`: `viewBox`, `paths: VectorPath[]`, `sourceSvg` (sanitised, for "reset colours" and "flat image"),
   `importWarnings`.
 - `shape`: `shape` kind + `params`; geometry is **derived** at render time by a pure, memoised
-  `generateShape(kind, params, w, h)`.
+  `generateShape(kind, params, w, h)`, which returns geometry only (`d` + fill rule). Style comes from the layer, and
+  `getLayerPaths` assembles the `VectorPath`s.
 - `VectorPath` holds `d`, a per-path `transform`, `fill`/`stroke` as `Paint` (solid, linear or radial gradient),
   stroke attributes, `fillRule`, `opacity`.
 - `getLayerPaths(layer) -> VectorPath[]` feeds one renderer (`Konva.Path`); path-level animations only see `VectorPath[]`.
@@ -26,6 +27,19 @@ Specific choices:
 - **SVG layers scale with the layer box** (stretch, like `preserveAspectRatio="none"`), strokes scale with it, as in SVG.
 - **Shape layers generate at real width/height** so stroke widths stay true pixels when resized.
 - One layer per SVG with a path list and colour swatches; **no ungrouping** (the app has no groups).
+
+Implementation notes (Phase 2):
+
+- Shape geometry is generated for the box **minus the stroke width** and offset by half of it (a per-path translate
+  transform), so a stroke always stays inside the layer's box, like borders on other layers.
+- Shapes are built from absolute `M/L/Q/C/Z` only (ellipses are four cubics, not arcs), which keeps the bounds easy to
+  verify: tests check every shape at several box sizes and at the min/max of every slider.
+- Shapes use round line joins (a mitred star point with a thick stroke spikes far outside its box).
+- `PathsContent` adds a transparent rect so a layer's click target and selection box are its full w×h, not just the
+  ink (a thin squiggle would be nearly impossible to grab). It draws nothing, so export doesn't need it.
+- A swoosh is a closed filled band (constant or tapered thickness), not a stroked line, so it fills like other closed shapes.
+- `Paint` includes linear and radial gradients and the renderer already maps them (`render/paint.ts`); the SVG
+  importer in Phase 3 only has to produce them. Konva has no radial *stroke* gradient, so that case falls back to the first stop.
 
 ## Alternatives considered
 

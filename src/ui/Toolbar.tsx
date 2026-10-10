@@ -14,6 +14,7 @@ import {
 import { useEditor } from '../store/editor'
 import { useUI } from '../store/ui'
 import type { GeneratorKind } from '../types/poster'
+import { ShapeLibraryMenu } from './ShapeLibraryMenu'
 
 function ToolButton({
   label,
@@ -70,6 +71,8 @@ export function Toolbar() {
       <ToolButton label="Image" onClick={() => fileRef.current?.click()}>
         <ImageIcon size={18} />
       </ToolButton>
+
+      <ShapeLibraryMenu />
 
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>

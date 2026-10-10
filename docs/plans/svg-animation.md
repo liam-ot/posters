@@ -516,11 +516,27 @@ playback/export reflect the changes.
   MP4 export (50 frames) contains the animation; add-animation menu and BPM flow work.
 - Not done in this phase: the "Show rest state" toggle only affects layer animations (generators keep animating by time).
 
+**Phase 2**
+- Built: `shape` layer type, 12 parametric shapes, `getLayerPaths`/`pathNodeConfigs` shared by canvas and export,
+  `decomposeMatrix`, gradient `paintProps`, toolbar Shapes popover (previews drawn from real geometry), Inspector
+  Shape section, layers-panel icon. 62 new tests (145 total).
+- Deviations / additions (also in ADR-0007): `generateShape` returns geometry only and the layer supplies style; stroke
+  inset via per-path translate; round joins; transparent hit rect in the live renderer only; swoosh is a closed band;
+  gradients already supported by the renderer (Phase 3 only needs to produce them).
+- Found by the shape-bounds tests: a single closed Catmull-Rom curve overshoots at the swoosh's sharp tips, so its two
+  edges are smoothed separately and joined with straight segments.
+- Verified in the app: saved posters still hash identically; live == export (0 px) with dashed/dotted/solid strokes, all
+  caps, rotation, opacity, blend modes, and mid-animation (scale-in, spin, slide, float); resizing a stroked shape
+  keeps its stroke width at true pixels; selection box == layer box and constant while animating; shapes save as params
+  only (~300 bytes each) and a reloaded poster renders identically.
+- Not done / for Phase 4: path-level presets (draw-on, wobble…) and `LayerFrame.paths`; `pathPresets` should filter
+  with `appliesTo: 'paths'` in `presetsFor` (currently a comment).
+
 ## 8. Progress
 
 - [x] Phase 0 — Groundwork (done; awaiting user review)
 - [x] Phase 1 — Animation engine + generic presets (done; awaiting user review)
-- [ ] Phase 2 — Path rendering + shape library
+- [x] Phase 2 — Path rendering + shape library (done; awaiting user review)
 - [ ] Phase 3 — SVG import (stretch: clipPath, embedded images)
 - [ ] Phase 4 — Path-level animation presets
 - [ ] Phase 5 — Timeline panel

@@ -62,7 +62,13 @@ export interface LayerAnimation {
   params: Record<string, number | string | boolean>
 }
 
-export type LayerType = 'rect' | 'ellipse' | 'text' | 'image' | 'generator'
+export type LayerType =
+  | 'rect'
+  | 'ellipse'
+  | 'text'
+  | 'image'
+  | 'generator'
+  | 'shape'
 
 export type StrokeStyle = 'solid' | 'dashed' | 'dotted'
 
@@ -134,12 +140,71 @@ export interface GeneratorLayer extends BaseLayer {
   params: Record<string, number | string | boolean>
 }
 
+// ── Vector paths (docs/adr/0007) ───────────────────────────────────────────
+export interface GradientStop {
+  offset: number // 0..1
+  color: string // stop-opacity folded into the colour
+}
+
+/** Gradient coordinates are in the path's own (pre-transform) space. */
+export type Paint =
+  | { type: 'solid'; color: string }
+  | { type: 'linear'; x1: number; y1: number; x2: number; y2: number; stops: GradientStop[] }
+  | { type: 'radial'; cx: number; cy: number; r: number; fx: number; fy: number; stops: GradientStop[] }
+
+export type Matrix2D = [number, number, number, number, number, number]
+
+export interface VectorPath {
+  id: string
+  name?: string
+  d: string
+  /** local → layer space, kept per path so gradients stay exact. */
+  transform: Matrix2D
+  fill: Paint | null
+  stroke: Paint | null
+  strokeWidth: number
+  lineCap: 'butt' | 'round' | 'square'
+  lineJoin: 'miter' | 'round' | 'bevel'
+  miterLimit: number
+  dash?: number[]
+  fillRule: 'nonzero' | 'evenodd'
+  opacity: number
+  visible: boolean
+}
+
+// Built-in parametric shapes (docs/adr/0007). Geometry is derived at render time.
+export type ShapeKind =
+  | 'star'
+  | 'polygon'
+  | 'triangle'
+  | 'burst'
+  | 'ring'
+  | 'arrow'
+  | 'cross'
+  | 'swoosh'
+  | 'squiggle'
+  | 'zigzag'
+  | 'wave'
+  | 'spiral'
+
+export interface ShapeLayer extends BaseLayer {
+  type: 'shape'
+  shape: ShapeKind
+  params: Record<string, number | string | boolean>
+  fill: string | null
+  stroke: string | null
+  strokeWidth?: number
+  strokeStyle?: StrokeStyle
+  lineCap?: 'butt' | 'round' | 'square'
+}
+
 export type Layer =
   | RectLayer
   | EllipseLayer
   | TextLayer
   | ImageLayer
   | GeneratorLayer
+  | ShapeLayer
 
 export interface PosterDoc {
   id: string

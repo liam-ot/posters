@@ -5,8 +5,10 @@ import type {
   Layer,
   LayerType,
   PosterDoc,
+  ShapeKind,
 } from '../types/poster'
 import { defaultParams } from '../generators/config'
+import { SHAPES, defaultShapeParams } from '../shapes/library'
 import { measureTextNatural } from '../canvas/textMetrics'
 
 export const DEFAULT_ARTBOARD: ArtboardConfig = {
@@ -38,6 +40,7 @@ let createdCount = 0
 
 interface CreateOpts {
   generator?: GeneratorKind
+  shape?: ShapeKind
   src?: string
   naturalWidth?: number
   naturalHeight?: number
@@ -134,6 +137,27 @@ export function createLayer(
         width,
         height,
         src: opts.src || '',
+      }
+    }
+    case 'shape': {
+      const kind = opts.shape || 'star'
+      const def = SHAPES[kind]
+      const { w: width, h: height } = def.size
+      const color = pickColor(n)
+      return {
+        ...base,
+        ...center(width, height),
+        type: 'shape',
+        name: def.label,
+        width,
+        height,
+        shape: kind,
+        params: defaultShapeParams(kind),
+        // Closed shapes start filled, line shapes start stroked.
+        fill: def.line ? null : color,
+        stroke: def.line ? color : null,
+        strokeWidth: def.line ? 8 : 0,
+        strokeStyle: 'solid',
       }
     }
     case 'generator': {
