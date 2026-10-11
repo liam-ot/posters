@@ -66,7 +66,9 @@ export function retime(
 /** Duration rounded to the nearest whole number of bars (at least one). */
 export function fitToBars(durationSec: number, bpm: number, beatsPerBar: number): number {
   const bar = secPerBeat(bpm) * beatsPerBar
-  return round(Math.max(1, Math.round(durationSec / bar)) * bar)
+  // Exact, not rounded to the millisecond: at 90 BPM a bar is 2.666…s, and a
+  // rounded length would leave loops a hair out of step at the wrap.
+  return Math.max(1, Math.round(durationSec / bar)) * bar
 }
 
 /** Ruler step in seconds so labels sit at least `minPx` apart. */

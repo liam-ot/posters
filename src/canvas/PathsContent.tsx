@@ -3,6 +3,7 @@ import { Path, Rect } from 'react-konva'
 import type { PathFrame } from '../animation/types'
 import { pathNodeConfigs, type PathLayer } from '../render/paths'
 import { getPathInfos } from '../render/pathInfo'
+import type { UV } from '../puppet/types'
 
 /**
  * Vector content of a shape or SVG layer. The transparent rect gives the layer a
@@ -18,13 +19,16 @@ import { getPathInfos } from '../render/pathInfo'
 export const PathsContent = memo(function PathsContent({
   layer,
   frames,
+  pins,
 }: {
   layer: PathLayer
   frames?: PathFrame[]
+  /** A character's animated pins this frame. */
+  pins?: Map<string, UV>
 }) {
   const paths = useMemo(
-    () => pathNodeConfigs(layer, frames, frames ? getPathInfos(layer) : undefined),
-    [layer, frames],
+    () => pathNodeConfigs(layer, frames, frames ? getPathInfos(layer) : undefined, pins),
+    [layer, frames, pins],
   )
   return (
     <>

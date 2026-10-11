@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid'
 import { useStudio } from './store'
 import { StudioCanvas } from './StudioCanvas'
 import { useUI } from '../store/ui'
+import { useTimeline } from '../store/timeline'
 import { saveAsset } from '../library/api'
 import { renderAssetThumbnail } from '../export/thumbnail'
 import { collectSwatches, replaceSwatch } from '../svg/palette'
@@ -11,6 +12,8 @@ import { Field, PanelSection, Slider, TextInput, Toggle } from '../ui/controls'
 import { removePin, setPose } from './pins'
 import { isMeshCurrent } from '../puppet/build'
 import { rebuildMesh } from './mesh'
+import { MotionSection, PinMotionControls } from './MotionPanels'
+import { StudioLanes, StudioPlayback } from './playback'
 import { SwatchGrid } from '../ui/SwatchGrid'
 import type { PuppetAsset, PuppetPin } from '../puppet/types'
 
@@ -302,6 +305,9 @@ function PinSection({ asset }: { asset: PuppetAsset }) {
               <RotateCcw size={12} /> Reset this pin
             </button>
           )}
+          <div className="mt-3 border-t border-[var(--color-border)] pt-2">
+            <PinMotionControls asset={asset} pin={pin} />
+          </div>
         </>
       )}
     </PanelSection>
@@ -425,6 +431,7 @@ export function Studio() {
     await persist(asset)
     useStudio.getState().close()
     useStudio.temporal.getState().clear()
+    useTimeline.setState({ playing: false, time: 0 })
     if (studioReturn === 'gallery') setGalleryTab('characters')
     setView(studioReturn)
   }
@@ -464,10 +471,17 @@ export function Studio() {
           <MotionsPanel asset={asset} />
           <PinsPanel asset={asset} />
         </aside>
-        <main className="relative min-w-0 flex-1">
-          <StudioCanvas asset={asset} />
+        <main className="flex min-w-0 flex-1 flex-col">
+          <div className="relative min-h-0 flex-1">
+            <StudioCanvas asset={asset} />
+            <div className="absolute bottom-14 left-1/2 z-10 -translate-x-1/2">
+              <StudioPlayback asset={asset} />
+            </div>
+          </div>
+          <StudioLanes asset={asset} />
         </main>
         <aside className="w-72 shrink-0 overflow-y-auto border-l border-[var(--color-border)] bg-[var(--color-panel)]">
+          <MotionSection asset={asset} />
           <PinSection asset={asset} />
           <MeshSection asset={asset} />
           <CharacterInspector asset={asset} />

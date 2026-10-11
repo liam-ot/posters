@@ -7,6 +7,10 @@ import { isMeshCurrent } from '../puppet/build'
 import type { PuppetAsset, UV } from '../puppet/types'
 import { locateInMesh, pinPositions, solveMesh } from '../puppet/deform'
 import { newPin, setPose, withPose } from './pins'
+import { previewTimeline, useEditingPose } from './playback'
+import { evaluatePins } from '../puppet/pins'
+import { contextFor } from '../animation/timing'
+import { useTimeline } from '../store/timeline'
 import { previewInstance } from '../puppet/convert'
 import { pathNodeConfigs } from '../render/paths'
 import { useContainerSize } from '../canvas/useContainerSize'
@@ -48,8 +52,19 @@ export function StudioCanvas({ asset }: { asset: PuppetAsset }) {
     () => (drag ? withPose(asset, drag.pinId, motionId, drag.pos) : asset),
     [asset, drag, motionId],
   )
-  const paths = useMemo(() => pathNodeConfigs(previewInstance(shown, motionId)), [shown, motionId])
-  const positions = useMemo(() => pinPositions(shown, motionId), [shown, motionId])
+  // At the start and paused: edit poses. Anywhere else: show the motion playing.
+  const editing = useEditingPose()
+  const time = useTimeline((s) => (editing ? 0 : s.time))
+  const animated = useMemo(() => {
+    if (editing) return undefined
+    const ctx = contextFor(previewTimeline(asset), false)
+    return evaluatePins(asset, motionId, time, ctx)
+  }, [editing, asset, motionId, time])
+  const positions = useMemo(() => animated ?? pinPositions(shown, motionId), [animated, shown, motionId])
+  const paths = useMemo(
+    () => pathNodeConfigs(previewInstance(shown, motionId), undefined, [], animated),
+    [shown, motionId, animated],
+  )
   const mesh = asset.puppet.mesh
   const current = useMemo(() => isMeshCurrent(asset), [asset])
   const wireVerts = useMemo(
@@ -67,6 +82,7 @@ export function StudioCanvas({ asset }: { asset: PuppetAsset }) {
 
   const onStageDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.target.name() === 'pin' || e.target.name() === 'pin-radius') return
+    if (!editing) return
     const at = toChar(e.target.getStage()!)
     // Pins only go on the artwork (inside the mesh); elsewhere a click deselects.
     if (!at || !current || !locateInMesh(asset, at[0], at[1])) return selectPin(undefined)
@@ -99,8 +115,14 @@ export function StudioCanvas({ asset }: { asset: PuppetAsset }) {
         {backdrop === 'light' ? <Moon size={15} /> : <Sun size={15} />}
       </button>
       <p className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md bg-[var(--color-panel)]/90 px-2 py-1 text-[11px] text-[var(--color-muted)]">
-        Click the artwork to add a pin · Alt-click for a starch pin · drag pins to pose
-        {motionId ? ' (this motion)' : ' (base pose)'} · Delete removes
+        {editing ? (
+          <>
+            Click the artwork to add a pin · Alt-click for a starch pin · drag pins to pose
+            {motionId ? ' (this motion)' : ' (base pose)'} · Delete removes
+          </>
+        ) : (
+          'Previewing — press ⏮ to edit poses'
+        )}
       </p>
       {cw > 0 && (
         <Stage width={cw} height={ch} onMouseDown={onStageDown}>
@@ -212,7 +234,8 @@ export function StudioCanvas({ asset }: { asset: PuppetAsset }) {
                       shadowColor="#000"
                       shadowBlur={4}
                       shadowOpacity={0.35}
-                      draggable
+                      draggable={editing}
+                      opacity={editing ? 1 : 0.5}
                       onMouseDown={(e) => {
                         e.cancelBubble = true
                         selectPin(pin.id)

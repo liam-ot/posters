@@ -2,7 +2,8 @@ import type { PathConfig } from 'konva/lib/shapes/Path'
 import type { ShapeLayer, SvgLayer, VectorPath } from '../types/poster'
 import type { PuppetLayer } from '../puppet/types'
 import { instanceSource } from '../puppet/source'
-import { posedPathData } from '../puppet/deform'
+import { deformPaths, posedPathData } from '../puppet/deform'
+import type { UV } from '../puppet/types'
 import { generateShape, SHAPES } from '../shapes/library'
 import { strokeDash } from '../canvas/stroke'
 import type { PathFrame, PathInfo } from '../animation/types'
@@ -74,8 +75,15 @@ function viewBoxPaths(
 
 const posedCache = new WeakMap<VectorPath[], { data: string[]; out: VectorPath[] }>()
 
-/** The instance's paths bent into its pose (docs/adr/0012); the same array when unposed. */
-function posePaths(layer: PuppetLayer, paths: VectorPath[]): VectorPath[] {
+/**
+ * The instance's paths bent into its pose (docs/adr/0012); the same array when
+ * unposed. `pins` = animated pin positions for this frame; otherwise the stored pose.
+ */
+function posePaths(layer: PuppetLayer, paths: VectorPath[], pins?: Map<string, UV>): VectorPath[] {
+  if (pins) {
+    const moving = deformPaths(layer.snapshot, pins)
+    return moving ? paths.map((p, i) => ({ ...p, d: moving[i] })) : paths
+  }
   const data = posedPathData(layer.snapshot, layer.motionId)
   if (!data) return paths
   const hit = posedCache.get(paths)
@@ -87,14 +95,14 @@ function posePaths(layer: PuppetLayer, paths: VectorPath[]): VectorPath[] {
 
 export type PathLayer = ShapeLayer | SvgLayer | PuppetLayer
 
-/** The vector paths of a shape, SVG or character layer, in layer space. */
-export function getLayerPaths(layer: PathLayer): VectorPath[] {
+/** The vector paths of a shape, SVG or character layer, in layer space. `pins`: a character's animated pins. */
+export function getLayerPaths(layer: PathLayer, pins?: Map<string, UV>): VectorPath[] {
   switch (layer.type) {
     case 'svg':
       return viewBoxPaths(layer.paths, layer.viewBox, layer.width, layer.height)
     case 'puppet': {
       const src = instanceSource(layer)
-      return viewBoxPaths(posePaths(layer, src.paths), src.viewBox, layer.width, layer.height)
+      return viewBoxPaths(posePaths(layer, src.paths, pins), src.viewBox, layer.width, layer.height)
     }
     case 'shape':
       return shapePaths(layer)
@@ -132,8 +140,9 @@ export function pathNodeConfigs(
   layer: PathLayer,
   frames?: PathFrame[],
   infos: PathInfo[] = [],
+  pins?: Map<string, UV>,
 ): PathNode[] {
-  return applyPathFrames(getLayerPaths(layer), frames, infos)
+  return applyPathFrames(getLayerPaths(layer, pins), frames, infos)
     .filter((p) => p.visible)
     .map((p) => ({ key: p.id, config: pathConfig(p) }))
 }

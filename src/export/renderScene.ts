@@ -8,6 +8,8 @@ import { hasPathPresets } from '../animation/presets'
 import type { PathFrame } from '../animation/types'
 import { getPathInfos, isPathLayer } from '../render/pathInfo'
 import { contextFor } from '../animation/timing'
+import { instancePins } from '../puppet/pins'
+import type { UV } from '../puppet/types'
 import { animatedGroupConfig } from '../render/transform'
 import {
   bitmapConfig,
@@ -38,6 +40,7 @@ function buildShape(
   pixelRatio: number,
   images: Map<string, HTMLImageElement>,
   pathFrames?: PathFrame[],
+  pins?: Map<string, UV>,
 ): Konva.Shape | Konva.Group | null {
   switch (layer.type) {
     case 'rect':
@@ -93,7 +96,7 @@ function buildShape(
     case 'puppet': {
       const group = new Konva.Group()
       const infos = pathFrames ? getPathInfos(layer) : undefined
-      for (const p of pathNodeConfigs(layer, pathFrames, infos)) group.add(new Konva.Path(p.config))
+      for (const p of pathNodeConfigs(layer, pathFrames, infos, pins)) group.add(new Konva.Path(p.config))
       return group
     }
     case 'generator': {
@@ -161,7 +164,8 @@ export async function renderSceneToCanvas(
     // resulting per-path state feeds the shape builder.
     const infos = isPathLayer(l) && hasPathPresets(l) ? getPathInfos(l) : undefined
     const frame = evaluateLayer(l, t, animCtx, infos)
-    const shape = buildShape(l, t, pixelRatio, images, frame.paths)
+    const pins = l.type === 'puppet' ? instancePins(l, t, animCtx) : undefined
+    const shape = buildShape(l, t, pixelRatio, images, frame.paths, pins)
     if (!shape) continue
     const group = new Konva.Group(layerGroupConfig(l))
     const inner = new Konva.Group(animatedGroupConfig(l, frame))

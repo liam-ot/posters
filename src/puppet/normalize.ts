@@ -1,6 +1,9 @@
-import type { PuppetAsset } from './types'
+import type { PoseLoop, PuppetAsset } from './types'
 
 export const DEFAULT_MESH_DETAIL = 300
+
+/** Motions rock between the base pose and their own pose by default: two beats per cycle. */
+export const DEFAULT_POSE_LOOP: PoseLoop = { enabled: true, shape: 'smooth', period: 2, periodUnit: 'beat' }
 
 /**
  * Fill defaults on a loaded character, like `normalizeDoc` does for posters
@@ -25,6 +28,10 @@ export function normalizeAsset(asset: PuppetAsset): PuppetAsset {
       detail: asset.puppet?.detail ?? DEFAULT_MESH_DETAIL,
       pins: asset.puppet?.pins ?? [],
     },
-    motions: (asset.motions ?? []).map((m) => ({ ...m, animations: m.animations ?? {} })),
+    motions: (asset.motions ?? []).map((m) => ({
+      ...m,
+      poseLoop: m.poseLoop ?? DEFAULT_POSE_LOOP,
+      animations: m.animations ?? {},
+    })),
   }
 }

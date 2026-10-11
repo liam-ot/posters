@@ -13,6 +13,7 @@ import { evaluateLayer, hasActiveAnimations } from '../animation/evaluate'
 import { hasPathPresets } from '../animation/presets'
 import { getPathInfos, isPathLayer } from '../render/pathInfo'
 import { contextFor } from '../animation/timing'
+import { instancePins, motionAnimates } from '../puppet/pins'
 import { animatedGroupConfig } from '../render/transform'
 import {
   bitmapConfig,
@@ -82,7 +83,8 @@ export function LayerNode({
 
   // Animated values live on the inner group (docs/adr/0003). Only layers with
   // an active animation subscribe to the clock, so static layers don't re-render.
-  const animated = hasActiveAnimations(layer)
+  const moves = layer.type === 'puppet' && motionAnimates(layer.snapshot, layer.motionId)
+  const animated = hasActiveAnimations(layer) || moves
   const time = useTimeline((s) => (animated ? s.time : 0))
   const timeline = useEditor((s) => s.doc?.timeline)
   const showRest = useUI((s) => s.showRest)
@@ -91,10 +93,9 @@ export function LayerNode({
     () => (isPathLayer(layer) && hasPathPresets(layer) ? getPathInfos(layer) : undefined),
     [layer],
   )
-  const frame =
-    animated && timeline
-      ? evaluateLayer(layer, time, contextFor(timeline, showRest), pathInfos)
-      : undefined
+  const ctx = timeline ? contextFor(timeline, showRest) : undefined
+  const frame = animated && ctx ? evaluateLayer(layer, time, ctx, pathInfos) : undefined
+  const pins = moves && ctx && layer.type === 'puppet' ? instancePins(layer, time, ctx) : undefined
 
   // The Transformer sizes its box from the node's content. Measure the content
   // as authored (ignoring the inner animation transform) so the selection box
@@ -181,7 +182,7 @@ export function LayerNode({
       case 'shape':
       case 'svg':
       case 'puppet':
-        return <PathsContent layer={layer} frames={frame?.paths} />
+        return <PathsContent layer={layer} frames={frame?.paths} pins={pins} />
     }
   }
 

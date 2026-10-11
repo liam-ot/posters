@@ -56,8 +56,12 @@ export function animationWindow(
   return { start, end: start + dur }
 }
 
-/** Does a loop of this period repeat a whole number of times in the timeline? */
+/**
+ * Does a loop of this period repeat a whole number of times in the timeline?
+ * Tolerates 0.1% of a cycle: durations are stored to the millisecond, so e.g.
+ * two bars at 90 BPM (5.333…s) are saved as 5.333s — an invisible difference.
+ */
 export function loopsSeamlessly(periodSec: number, duration: number): boolean {
   const n = duration / periodSec
-  return n >= 1 - 1e-6 && Math.abs(n - Math.round(n)) < 1e-6
+  return n >= 1 - 1e-3 && Math.abs(n - Math.round(n)) < 1e-3
 }

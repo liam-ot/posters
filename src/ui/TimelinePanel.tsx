@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
-import type { Layer, LayerAnimation } from '../types/poster'
+import type { Layer, LayerAnimation, TimeUnit } from '../types/poster'
 import { useEditor } from '../store/editor'
 import { useTimeline } from '../store/timeline'
 import { useUI } from '../store/ui'
 import { PRESETS } from '../animation/presets'
+import { motionAnimates } from '../puppet/pins'
 import { fitToBars, retime, rulerStep, type DragMode } from '../animation/retime'
 import {
   animationWindow,
@@ -72,7 +73,7 @@ export function TimelinePanel() {
   const ctx = contextFor(doc.timeline, false)
   const D = ctx.duration
   const pps = trackW > 0 ? trackW / D : 0
-  const rows = [...doc.layers].reverse().filter((l) => l.animations?.length)
+  const rows = [...doc.layers].reverse().filter((l) => l.animations?.length || characterMotion(l))
   const barSec = ctx.bpm ? secPerBeat(ctx.bpm) * ctx.beatsPerBar : 0
   const fitted = ctx.bpm ? fitToBars(D, ctx.bpm, ctx.beatsPerBar) : D
 
@@ -189,6 +190,8 @@ export function TimelinePanel() {
           {rows.map((layer) => {
             const selected = selectedIds.includes(layer.id)
             const lanes = lanesOf(layer.animations ?? [])
+            const motion = characterMotion(layer)
+            const laneCount = lanes.length + (motion ? 1 : 0)
             return (
               <div
                 key={layer.id}
@@ -208,7 +211,7 @@ export function TimelinePanel() {
                 <div
                   className="relative mr-3 flex-1"
                   style={{
-                    height: lanes.length * (LANE_H + LANE_GAP) - LANE_GAP + ROW_PAD * 2,
+                    height: laneCount * (LANE_H + LANE_GAP) - LANE_GAP + ROW_PAD * 2,
                   }}
                 >
                   {pps > 0 &&
@@ -240,6 +243,22 @@ export function TimelinePanel() {
                         )
                       }),
                     )}
+                  {pps > 0 && motion && (
+                    <MotionBar
+                      label={motion.label}
+                      period={motion.period}
+                      periodUnit={motion.periodUnit}
+                      offset={motion.offset}
+                      top={ROW_PAD + lanes.length * (LANE_H + LANE_GAP)}
+                      pps={pps}
+                      duration={D}
+                      ctxBpm={ctx}
+                      onPointerDown={(e) => {
+                        e.stopPropagation()
+                        setSelection([layer.id])
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             )
@@ -254,6 +273,67 @@ export function TimelinePanel() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/** A character's moving motion, as a read-only lane: its name and the pose loop's cycles. */
+function characterMotion(
+  layer: Layer,
+): { label: string; period?: number; periodUnit?: TimeUnit; offset: number } | undefined {
+  if (layer.type !== 'puppet' || !motionAnimates(layer.snapshot, layer.motionId)) return undefined
+  const m = layer.snapshot.motions.find((x) => x.id === layer.motionId)!
+  const loop = m.poseLoop?.enabled && Object.keys(m.poses ?? {}).length ? m.poseLoop : undefined
+  return {
+    label: `${m.name} · character motion`,
+    period: loop?.period,
+    periodUnit: loop?.periodUnit,
+    offset: loop?.phaseOffset ?? 0,
+  }
+}
+
+function MotionBar({
+  label,
+  period,
+  periodUnit,
+  offset,
+  top,
+  pps,
+  duration,
+  ctxBpm,
+  onPointerDown,
+}: {
+  label: string
+  period?: number
+  periodUnit?: TimeUnit
+  offset: number
+  top: number
+  pps: number
+  duration: number
+  ctxBpm: EvalContext
+  onPointerDown: (e: React.PointerEvent) => void
+}) {
+  const sec = period === undefined ? 0 : periodSeconds({ period, periodUnit } as LayerAnimation, ctxBpm)
+  const ticks: number[] = []
+  if (sec > 0 && sec * pps >= 4) {
+    for (let k = (1 - offset) % 1; k * sec <= duration + 1e-6; k++) if (k > 1e-6) ticks.push(k * sec)
+  }
+  return (
+    <div
+      title={label}
+      onPointerDown={onPointerDown}
+      style={{
+        top,
+        height: LANE_H,
+        backgroundImage:
+          'repeating-linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 30%, transparent) 0 6px, color-mix(in srgb, var(--color-accent) 14%, transparent) 6px 12px)',
+      }}
+      className="absolute inset-x-0 cursor-pointer overflow-hidden rounded-md border border-[var(--color-accent)]/40 text-[10px] leading-[18px] text-[var(--color-text)] select-none"
+    >
+      {ticks.map((t) => (
+        <div key={t} style={{ left: t * pps }} className="absolute inset-y-0 w-px bg-[var(--color-accent)]/70" />
+      ))}
+      <span className="pointer-events-none relative block truncate px-2">{label}</span>
     </div>
   )
 }

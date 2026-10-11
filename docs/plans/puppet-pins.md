@@ -522,11 +522,36 @@ poster and every Phase-4 path preset still render identically.
 - Performance: one solve 1.2 ms, solve + all 80 paths 2.7 ms on the taco. A studio drag frame costs ~28 ms, dominated
   by React/Konva re-rendering the paths — fine for posing, to profile in Phase 5 for playback.
 
+**Phase 4**
+- Built: `src/puppet/pinPresets.ts` (swing, bob, circle, beat bounce — the plan's `beatSquash`, renamed for the UI),
+  `src/puppet/pins.ts` (`evaluatePins`: pose loop → parent-first chains with accumulated swing → screen-aligned offsets;
+  cycle guard; rest = motion pose, loops off; `instancePins` for renderers), pins threaded through `getLayerPaths` /
+  `pathNodeConfigs` so canvas, export and MP4 all animate characters; studio play bar with its own clock, preview BPM
+  and length (saved with the character), Motion panel, parent picker + per-pin loops, lanes strip; poster timeline shows
+  a "· character motion" lane. 20 new tests (343 total).
+- **Added during this phase (user-driven):** the **pose loop**. The user posed a motion ("Dance 1") and expected it to
+  animate; a motion now rocks between its own pose and the base pose (`smooth` / `pop` / `hit`), on by default
+  (2 beats), so posing alone makes a motion move. Pin loops compose on top. Rest state shows the motion's pose
+  (cycle 0 of every pose-loop shape).
+- Studio editing model: poses are edited at 0s, paused; playing or scrubbing shows the animation with pins locked
+  (⏮ returns to editing). Opening/leaving the studio stops playback and rewinds.
+- Fixes: durations set via "Bars"/"Fit to bars" are stored exactly (were rounded to 1 ms, which left loops a hair out
+  of step at 90 BPM — 2 bars = 5.333…s) and displayed rounded; `loopsSeamlessly` tolerates 0.1% of a cycle so
+  older millisecond-rounded durations don't show a false "loop will jump" warning.
+- Verified: the user's own Taco (read-only) — its "Dance 1" now rocks between the two arm poses (frames at 0 / 0.25 /
+  0.5 / 0.75 s). A copy with 8 pins (hands → arms → body chains, planted feet), swings alternating via offset ½, foot
+  kicks, body beat bounce, plus an "Idle" motion: studio plays at ~51 fps; in a 120 BPM poster live == export path data
+  at 6 times, editor playback ~70 fps, the timeline shows the motion lane; frame at the end == frame 0 at 120 and 90 BPM
+  (with exact durations); the pose loop completes in 1 s at 120 and 1.333 s at 90 BPM; a real MP4 (120 frames) exports
+  in 9 s at 0.4× and shows the dance. All scratch posters/characters and the MP4 deleted.
+- Not done: wobble + puppet in a single displacement pass (wobble on an animated character re-normalises each frame) —
+  Phase 5 performance work.
+
 ## 9. Progress
 
 - [x] Phase 0 — Groundwork + phase offset (done; awaiting user review)
 - [x] Phase 1 — Library, studio shell, linked instances (done; awaiting user review)
 - [x] Phase 2 — Silhouette + mesh (done; awaiting user review)
 - [x] Phase 3 — Solver, binding, posing (done; awaiting user review)
-- [ ] Phase 4 — Motions, pin animation, chains
+- [x] Phase 4 — Motions, pin animation, chains (done; awaiting user review)
 - [ ] Phase 5 — Performance & polish

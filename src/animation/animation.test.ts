@@ -84,6 +84,8 @@ describe('timing', () => {
     expect(loopsSeamlessly(2.5, 5)).toBe(true)
     expect(loopsSeamlessly(2, 5)).toBe(false)
     expect(loopsSeamlessly(10, 5)).toBe(false)
+    // Two bars at 90 BPM, stored to the millisecond.
+    expect(loopsSeamlessly(4 / 3, 5.333)).toBe(true)
   })
 })
 

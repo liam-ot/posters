@@ -1,4 +1,4 @@
-import type { BaseLayer, LayerAnimation, VectorPath } from '../types/poster'
+import type { BaseLayer, TimeUnit, VectorPath } from '../types/poster'
 
 /**
  * Character library + puppet pins (docs/plans/puppet-pins.md, docs/adr/0012, 0013).
@@ -25,13 +25,41 @@ export interface PuppetPin {
   amount?: number
 }
 
+export type PinPresetId = 'swing' | 'bob' | 'circle' | 'bounce'
+
+/** A repeating move on one pin within a motion (docs/plans/puppet-pins.md §4.6). */
+export interface PinAnimation {
+  id: string
+  preset: PinPresetId
+  enabled: boolean
+  period: number
+  periodUnit: TimeUnit
+  /** 0..1 of the period. */
+  phaseOffset?: number
+  params: Record<string, number | string | boolean>
+}
+
+/**
+ * How a motion moves between the base pose and its own pose: on every cycle it
+ * starts in the motion's pose and goes to the base pose and back (`smooth`),
+ * holds each (`pop`), or hits the motion's pose and eases out (`hit`).
+ */
+export interface PoseLoop {
+  enabled: boolean
+  shape: 'smooth' | 'pop' | 'hit'
+  period: number
+  periodUnit: TimeUnit
+  phaseOffset?: number
+}
+
 export interface PuppetMotion {
   id: string
   name: string
   /** Per-pin pose overrides for this motion. */
   poses?: Record<string, UV>
-  /** pin id → loop animations (pin presets). */
-  animations: Record<string, LayerAnimation[]>
+  poseLoop?: PoseLoop
+  /** pin id → loop animations. */
+  animations: Record<string, PinAnimation[]>
   /** Suggested loop length, for the studio preview. */
   lengthBars?: number
 }

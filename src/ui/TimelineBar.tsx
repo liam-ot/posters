@@ -105,7 +105,7 @@ export function TimelineBar() {
         className="h-1 w-48 cursor-pointer accent-[var(--color-accent)]"
       />
       <span className="w-16 text-center text-xs tabular-nums text-[var(--color-muted)]">
-        {time.toFixed(1)}s / {durationSec}s
+        {time.toFixed(1)}s / {Number(durationSec.toFixed(2))}s
       </span>
 
       <div className="h-6 w-px bg-[var(--color-border)]" />
@@ -114,7 +114,7 @@ export function TimelineBar() {
         <span>Dur</span>
         <div className="w-14">
           <NumberInput
-            value={durationSec}
+            value={Math.round(durationSec * 1000) / 1000}
             min={0.5}
             step={0.5}
             onChange={(v) => updateTimeline({ durationSec: v })}
@@ -174,7 +174,8 @@ export function TimelineBar() {
                 min={0.25}
                 step={1}
                 onChange={(v) =>
-                  updateTimeline({ durationSec: Math.round(v * barSec * 1000) / 1000 })
+                  // Exact, not rounded: a whole number of bars must divide the loops exactly.
+                  updateTimeline({ durationSec: v * barSec })
                 }
               />
             </div>
