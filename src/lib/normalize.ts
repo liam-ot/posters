@@ -1,5 +1,7 @@
 import type { Layer, PosterDoc, TimelineConfig } from '../types/poster'
 import { normalizeAsset } from '../puppet/normalize'
+import { hydrateCharacters } from '../puppet/share'
+import type { PuppetAsset } from '../puppet/types'
 
 export const DEFAULT_TIMELINE: TimelineConfig = {
   durationSec: 5,
@@ -13,14 +15,18 @@ export const DEFAULT_TIMELINE: TimelineConfig = {
  * Pure and idempotent; unknown fields are preserved.
  */
 export function normalizeDoc(doc: PosterDoc): PosterDoc {
-  return {
-    ...doc,
-    timeline: { ...DEFAULT_TIMELINE, ...doc.timeline },
-    layers: (doc.layers ?? []).map(normalizeLayer),
+  // Attach shared character snapshots first (docs/plans/puppet-pins.md §10), then
+  // give each distinct snapshot the asset defaults once, so copies keep sharing it.
+  const hydrated = hydrateCharacters({ ...doc, layers: doc.layers ?? [] })
+  const normalized = new Map<PuppetAsset, PuppetAsset>()
+  const once = (a: PuppetAsset) => {
+    let n = normalized.get(a)
+    if (!n) normalized.set(a, (n = normalizeAsset(a)))
+    return n
   }
-}
-
-function normalizeLayer(layer: Layer): Layer {
-  // Character instances carry a whole asset; give it the asset defaults too.
-  return layer.type === 'puppet' ? { ...layer, snapshot: normalizeAsset(layer.snapshot) } : layer
+  return {
+    ...hydrated,
+    timeline: { ...DEFAULT_TIMELINE, ...doc.timeline },
+    layers: hydrated.layers.map((l: Layer) => (l.type === 'puppet' ? { ...l, snapshot: once(l.snapshot) } : l)),
+  }
 }

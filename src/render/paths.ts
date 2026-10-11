@@ -49,7 +49,8 @@ function shapePaths(layer: ShapeLayer): VectorPath[] {
   }))
 }
 
-const svgCache = new WeakMap<VectorPath[], { key: string; out: VectorPath[] }>()
+// Per paths array, one entry per box size + mirror: copies of a character share the array.
+const svgCache = new WeakMap<VectorPath[], Map<string, VectorPath[]>>()
 
 /**
  * SVG artwork stretches its viewBox over the layer box (like
@@ -62,19 +63,32 @@ function viewBoxPaths(
   vb: SvgLayer['viewBox'],
   width: number,
   height: number,
+  flipX = false,
+  flipY = false,
 ): VectorPath[] {
-  const key = `${width}x${height}|${vb.x},${vb.y},${vb.width},${vb.height}`
-  const hit = svgCache.get(paths)
-  if (hit && hit.key === key) return hit.out
-  const sx = width / vb.width
-  const sy = height / vb.height
-  const base: [number, number, number, number, number, number] = [sx, 0, 0, sy, -vb.x * sx, -vb.y * sy]
+  const key = `${width}x${height}|${vb.x},${vb.y},${vb.width},${vb.height}|${flipX ? 1 : 0}${flipY ? 1 : 0}`
+  let byKey = svgCache.get(paths)
+  if (!byKey) svgCache.set(paths, (byKey = new Map()))
+  const hit = byKey.get(key)
+  if (hit) return hit
+  // Mirroring flips within the layer box, so the box (and selection) stay put.
+  const sx = (width / vb.width) * (flipX ? -1 : 1)
+  const sy = (height / vb.height) * (flipY ? -1 : 1)
+  const base: [number, number, number, number, number, number] = [
+    sx,
+    0,
+    0,
+    sy,
+    (flipX ? width : 0) - vb.x * sx,
+    (flipY ? height : 0) - vb.y * sy,
+  ]
   const out = paths.map((p) => ({ ...p, transform: multiply(base, p.transform) }))
-  svgCache.set(paths, { key, out })
+  if (byKey.size >= 16) byKey.delete(byKey.keys().next().value!)
+  byKey.set(key, out)
   return out
 }
 
-const posedCache = new WeakMap<VectorPath[], { data: string[]; out: VectorPath[] }>()
+const posedCache = new WeakMap<VectorPath[], Map<string[], VectorPath[]>>()
 
 /**
  * The instance's paths bent into its pose (docs/adr/0012); the same array when
@@ -83,16 +97,34 @@ const posedCache = new WeakMap<VectorPath[], { data: string[]; out: VectorPath[]
 function posePaths(layer: PuppetLayer, paths: VectorPath[], pins?: Map<string, UV>): VectorPath[] {
   if (pins) {
     // Animated: numeric geometry, drawn without re-parsing strings every frame.
-    const moving = deformSegs(layer.snapshot, pins)
+    const moving = sharedDeform(layer.snapshot, pins)
     return moving ? paths.map((p, i) => ({ ...p, segs: moving[i] })) : paths
   }
   const data = posedPathData(layer.snapshot, layer.motionId)
   if (!data) return paths
-  const hit = posedCache.get(paths)
-  if (hit && hit.data === data) return hit.out
-  const out = paths.map((p, i) => ({ ...p, d: data[i] }))
-  posedCache.set(paths, { data, out })
+  // One entry per pose (copies may show different motions).
+  let byPose = posedCache.get(paths)
+  if (!byPose) posedCache.set(paths, (byPose = new Map()))
+  let out = byPose.get(data)
+  if (!out) {
+    out = paths.map((p, i) => ({ ...p, d: data[i] }))
+    if (byPose.size >= 16) byPose.delete(byPose.keys().next().value!)
+    byPose.set(data, out)
+  }
   return out
+}
+
+// Copies of a character showing the same moment share one bend per frame.
+const recentBends: { asset: PuppetLayer['snapshot']; key: string; segs: Seg[][] | null }[] = []
+function sharedDeform(asset: PuppetLayer['snapshot'], pins: Map<string, UV>): Seg[][] | null {
+  let key = ''
+  for (const [id, [x, y]] of pins) key += `${id}:${x},${y};`
+  const hit = recentBends.find((b) => b.asset === asset && b.key === key)
+  if (hit) return hit.segs
+  const segs = deformSegs(asset, pins)
+  recentBends.unshift({ asset, key, segs })
+  if (recentBends.length > 8) recentBends.pop()
+  return segs
 }
 
 export type PathLayer = ShapeLayer | SvgLayer | PuppetLayer
@@ -104,7 +136,7 @@ export function getLayerPaths(layer: PathLayer, pins?: Map<string, UV>): VectorP
       return viewBoxPaths(layer.paths, layer.viewBox, layer.width, layer.height)
     case 'puppet': {
       const src = instanceSource(layer)
-      return viewBoxPaths(posePaths(layer, src.paths, pins), src.viewBox, layer.width, layer.height)
+      return viewBoxPaths(posePaths(layer, src.paths, pins), src.viewBox, layer.width, layer.height, layer.flipX, layer.flipY)
     }
     case 'shape':
       return shapePaths(layer)

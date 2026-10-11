@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link2, Link2Off, PersonStanding, RotateCcw } from 'lucide-react'
+import { FlipHorizontal2, FlipVertical2, Link2, Link2Off, PersonStanding, RotateCcw } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import type { Layer, ShapeLayer, SvgLayer } from '../types/poster'
 import type { PuppetLayer } from '../puppet/types'
@@ -12,8 +12,11 @@ import { relink } from '../puppet/link'
 import { isMeshCurrent } from '../puppet/meshKey'
 import { openCharacter } from '../studio/open'
 import { collectSwatches } from '../svg/palette'
-import { Field, PanelSection, Select } from './controls'
+import { Field, NumberInput, PanelSection, Select } from './controls'
 import { SwatchGrid } from './SwatchGrid'
+
+const toggleBtn =
+  'flex h-7 w-8 items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-text)]'
 
 const button =
   'flex items-center justify-center gap-1.5 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs text-[var(--color-text)] hover:bg-[var(--color-panel-2)] disabled:opacity-40'
@@ -33,6 +36,7 @@ export function PuppetLayerSection({
   patch: (p: Partial<Layer>) => void
 }) {
   const replaceLayer = useEditor((s) => s.replaceLayer)
+  const bpm = useEditor((s) => s.doc?.timeline.bpm)
   const [missing, setMissing] = useState(false)
   const { snapshot } = layer
   const swatches = useMemo(() => collectSwatches(snapshot.source.paths), [snapshot.source.paths])
@@ -77,6 +81,37 @@ export function PuppetLayerSection({
             onChange={(v) => patch({ motionId: v || undefined } as Partial<Layer>)}
           />
         </Field>
+        <Field label="Delay">
+          <NumberInput
+            value={layer.delay ?? 0}
+            min={0}
+            step={0.5}
+            suffix={bpm ? 'beats' : 's'}
+            onChange={(v) => patch({ delay: v || undefined } as Partial<Layer>)}
+          />
+        </Field>
+        <Field label="Mirror">
+          <div className="flex gap-1">
+            <button
+              title="Mirror horizontally"
+              onClick={() => patch({ flipX: !layer.flipX || undefined } as Partial<Layer>)}
+              className={`${toggleBtn} ${layer.flipX ? 'bg-[var(--color-accent)] text-white' : ''}`}
+            >
+              <FlipHorizontal2 size={14} />
+            </button>
+            <button
+              title="Mirror vertically"
+              onClick={() => patch({ flipY: !layer.flipY || undefined } as Partial<Layer>)}
+              className={`${toggleBtn} ${layer.flipY ? 'bg-[var(--color-accent)] text-white' : ''}`}
+            >
+              <FlipVertical2 size={14} />
+            </button>
+          </div>
+        </Field>
+        <p className="pb-1 text-[11px] text-[var(--color-muted)]">
+          Delay starts this copy’s motion later, so copies don’t move in lockstep. Alt-drag a character (or ⌘D) to
+          make another copy — copies share one character and stay light.
+        </p>
         {snapshot.motions.length === 0 && (
           <p className="pb-1 text-[11px] text-[var(--color-muted)]">
             This character has no motions yet — add them in the puppet studio.

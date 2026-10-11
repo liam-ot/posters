@@ -5,7 +5,7 @@ import { useEditor } from '../store/editor'
 import { useTimeline } from '../store/timeline'
 import { useUI } from '../store/ui'
 import { PRESETS } from '../animation/presets'
-import { motionAnimates } from '../puppet/pins'
+import { delaySeconds, motionAnimates } from '../puppet/pins'
 import { fitToBars, retime, rulerStep, type DragMode } from '../animation/retime'
 import {
   animationWindow,
@@ -249,6 +249,7 @@ export function TimelinePanel() {
                       period={motion.period}
                       periodUnit={motion.periodUnit}
                       offset={motion.offset}
+                      delay={motion.delay}
                       top={ROW_PAD + lanes.length * (LANE_H + LANE_GAP)}
                       pps={pps}
                       duration={D}
@@ -280,7 +281,7 @@ export function TimelinePanel() {
 /** A character's moving motion, as a read-only lane: its name and the pose loop's cycles. */
 function characterMotion(
   layer: Layer,
-): { label: string; period?: number; periodUnit?: TimeUnit; offset: number } | undefined {
+): { label: string; period?: number; periodUnit?: TimeUnit; offset: number; delay?: number } | undefined {
   if (layer.type !== 'puppet' || !motionAnimates(layer.snapshot, layer.motionId)) return undefined
   const m = layer.snapshot.motions.find((x) => x.id === layer.motionId)!
   const loop = m.poseLoop?.enabled && Object.keys(m.poses ?? {}).length ? m.poseLoop : undefined
@@ -289,6 +290,7 @@ function characterMotion(
     period: loop?.period,
     periodUnit: loop?.periodUnit,
     offset: loop?.phaseOffset ?? 0,
+    delay: layer.delay,
   }
 }
 
@@ -297,6 +299,7 @@ function MotionBar({
   period,
   periodUnit,
   offset,
+  delay,
   top,
   pps,
   duration,
@@ -307,6 +310,7 @@ function MotionBar({
   period?: number
   periodUnit?: TimeUnit
   offset: number
+  delay?: number
   top: number
   pps: number
   duration: number
@@ -316,7 +320,10 @@ function MotionBar({
   const sec = period === undefined ? 0 : periodSeconds({ period, periodUnit } as LayerAnimation, ctxBpm)
   const ticks: number[] = []
   if (sec > 0 && sec * pps >= 4) {
-    for (let k = (1 - offset) % 1; k * sec <= duration + 1e-6; k++) if (k > 1e-6) ticks.push(k * sec)
+    // Cycles start where loop time is a whole period: t = delay − offset·period + k·period.
+    const shift = delaySeconds(delay, ctxBpm) - offset * sec
+    const first = shift - Math.floor(shift / sec) * sec
+    for (let x = first; x <= duration + 1e-6; x += sec) if (x > 1e-6) ticks.push(x)
   }
   return (
     <div

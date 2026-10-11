@@ -8,14 +8,14 @@ import { lightChecker } from './Library'
 
 /** Toolbar popover: place a library character as a linked instance (docs/adr/0013). */
 export function CharacterMenu() {
-  const addLayer = useEditor((s) => s.addLayer)
+  const placeCharacter = useEditor((s) => s.placeCharacter)
   const [open, setOpen] = useState(false)
   const [assets, setAssets] = useState<AssetSummary[] | null>(null)
 
   const place = async (id: string) => {
     setOpen(false)
     const asset = await getAsset(id)
-    if (asset) addLayer('puppet', { asset })
+    if (asset) placeCharacter(asset)
   }
 
   return (

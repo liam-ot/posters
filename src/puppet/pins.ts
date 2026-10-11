@@ -142,10 +142,16 @@ export function evaluatePins(asset: PuppetAsset, motionId: string | undefined, t
  * its motion is still (or in rest state) — then the stored, cached pose is used.
  */
 export function instancePins(
-  layer: { snapshot: PuppetAsset; motionId?: string },
+  layer: { snapshot: PuppetAsset; motionId?: string; delay?: number },
   t: number,
   ctx: EvalContext,
 ): Map<string, UV> | undefined {
   if (ctx.rest || !motionAnimates(layer.snapshot, layer.motionId)) return undefined
-  return evaluatePins(layer.snapshot, layer.motionId, t, ctx)
+  return evaluatePins(layer.snapshot, layer.motionId, t - delaySeconds(layer.delay, ctx), ctx)
+}
+
+/** A copy's delay in seconds: beats at the poster's BPM, or seconds without one. A constant shift, so loops stay seamless. */
+export function delaySeconds(delay: number | undefined, ctx: EvalContext): number {
+  if (!delay) return 0
+  return ctx.bpm ? delay * (60 / ctx.bpm) : delay
 }

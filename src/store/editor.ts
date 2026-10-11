@@ -11,6 +11,8 @@ import type {
 } from '../types/poster'
 import { createDefaultDoc, createLayer } from '../lib/layers'
 import { normalizeDoc } from '../lib/normalize'
+import type { PuppetAsset } from '../puppet/types'
+import { relink } from '../puppet/link'
 
 interface EditorState {
   doc: PosterDoc | null
@@ -34,7 +36,14 @@ interface EditorState {
   updateSelected: (patch: Partial<Layer>) => void
   removeLayer: (id: string) => void
   removeSelected: () => void
-  duplicateLayer: (id: string) => void
+  /**
+   * Copy a layer. Default: offset by 24 px above it and selected (⌘D). `inPlace`:
+   * the copy stays exactly where the layer is, just below it, and selection is kept
+   * — Alt-drag then moves the original away, leaving the copy behind.
+   */
+  duplicateLayer: (id: string, opts?: { inPlace?: boolean }) => void
+  /** Place a library character; existing linked copies move to the same snapshot so all copies share it. */
+  placeCharacter: (asset: PuppetAsset) => void
   reorderLayer: (id: string, toIndex: number) => void
   moveLayer: (id: string, dir: 'up' | 'down' | 'top' | 'bottom') => void
 
@@ -147,24 +156,44 @@ export const useEditor = create<EditorState>()(
           selectedIds: [],
         })),
 
-      duplicateLayer: (id) => {
+      duplicateLayer: (id, opts) => {
         const s = get()
         if (!s.doc) return
         const src = s.doc.layers.find((l) => l.id === id)
         if (!src) return
-        const copy: Layer = {
-          ...structuredClone(src),
+        const inPlace = !!opts?.inPlace
+        // A linked character copy shares its snapshot instead of deep-copying it.
+        const shared = src.type === 'puppet' && !src.detached ? src.snapshot : undefined
+        const body = shared ? { ...src, snapshot: undefined } : src
+        const copy = {
+          ...structuredClone(body),
+          ...(shared ? { snapshot: shared } : {}),
           id: nanoid(),
           name: `${src.name} copy`,
-          x: src.x + 24,
-          y: src.y + 24,
-        }
+          x: src.x + (inPlace ? 0 : 24),
+          y: src.y + (inPlace ? 0 : 24),
+        } as Layer
         set({
           doc: mutate(s.doc, (d) => {
             const idx = d.layers.findIndex((l) => l.id === id)
-            d.layers.splice(idx + 1, 0, copy)
+            d.layers.splice(inPlace ? idx : idx + 1, 0, copy)
           }),
-          selectedIds: [copy.id],
+          selectedIds: inPlace ? s.selectedIds : [copy.id],
+        })
+      },
+
+      placeCharacter: (asset) => {
+        const doc = get().doc
+        if (!doc) return
+        const layer = createLayer('puppet', doc.artboard, { asset })
+        set({
+          doc: mutate(doc, (d) => {
+            d.layers.forEach((l, i) => {
+              if (l.type === 'puppet' && !l.detached && l.assetId === asset.id) d.layers[i] = relink(l, asset)
+            })
+            d.layers.push(layer)
+          }),
+          selectedIds: [layer.id],
         })
       },
 

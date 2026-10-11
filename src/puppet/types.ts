@@ -135,4 +135,9 @@ export interface PuppetLayer extends BaseLayer {
   colorOverrides?: Record<string, string>
   /** Frozen: stops following library edits. */
   detached?: boolean
+  /** Start this copy's motion later, in beats (seconds without a BPM). */
+  delay?: number
+  /** Mirror this copy. */
+  flipX?: boolean
+  flipY?: boolean
 }

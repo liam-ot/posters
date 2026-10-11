@@ -569,3 +569,31 @@ poster and every Phase-4 path preset still render identically.
 - [x] Phase 3 — Solver, binding, posing (done; awaiting user review)
 - [x] Phase 4 — Motions, pin animation, chains (done; awaiting user review)
 - [x] Phase 5 — Performance & polish (done; awaiting user review)
+
+---
+
+## 10. Follow-up: lightweight character copies (2026-10-12)
+
+User request: several copies of one character on a poster, as references rather than full copies.
+
+- **One snapshot per character per poster.** Saved posters keep `characters: { [assetId]: PuppetAsset }`; linked
+  character layers store only the reference + their own settings. On load the snapshot is attached to every linked
+  layer as the **same object**, so render caches (bindings, solver) are shared between copies. Detached layers keep
+  their own snapshot. Old posters (a snapshot per layer) are folded in on load.
+- **Duplicating:** ⌘D (existing) and **Alt-drag** on the canvas (new, every layer type, as in Figma). Duplicated
+  character layers share the snapshot.
+- **Per copy:** **Delay** (in beats; seconds without a BPM) so copies don't move in lockstep, and **Mirror**
+  horizontally / vertically. Position, size, rotation, motion and colours were already per copy.
+
+**Implementation notes (§10)**
+- `src/puppet/share.ts` (`hydrateCharacters` on load inside `normalizeDoc`, `dehydrateCharacters` in `savePoster`);
+  a missing snapshot becomes an empty placeholder (version 0) that the library refresh replaces. Saving a doc read
+  straight from disk keeps its stored snapshots (the gallery's Duplicate does this).
+- `duplicateLayer(id, { inPlace })` shares the snapshot; Alt at drag start duplicates in place below and keeps
+  dragging the original (two undo steps: copy, move). `placeCharacter` relinks existing copies to the placed version.
+- `delay` (beats → seconds via BPM) shifts the time the motion sees; `flipX`/`flipY` fold into the viewBox → box
+  matrix. View-box and pose caches hold several entries per shared paths array; copies showing the same moment share
+  one bend per frame.
+- Verified: 4 copies (2 Alt-drags with real mouse events + ⌘D) share one object; the saved poster holds one 117 KB
+  snapshot (134 KB total vs ~470 KB before); reload keeps sharing and per-copy settings; mirrored and delayed copies
+  render and export; playback 55 → 69 fps with the shared-bend cache. 11 new tests (354 total).

@@ -1,7 +1,7 @@
 // Core data model for a poster document.
 // One PosterDoc is persisted as a single JSON file at data/posters/<id>.json.
 
-import type { PuppetLayer } from '../puppet/types'
+import type { PuppetAsset, PuppetLayer } from '../puppet/types'
 import type { Seg } from '../animation/wobble'
 
 export type BlendMode = GlobalCompositeOperation
@@ -246,6 +246,11 @@ export interface PosterDoc {
   artboard: ArtboardConfig
   timeline: TimelineConfig
   layers: Layer[]
+  /**
+   * Saved posters only: one snapshot per linked character, shared by every copy of
+   * it (docs/plans/puppet-pins.md §10). In memory each linked layer points at it.
+   */
+  characters?: Record<string, PuppetAsset>
 }
 
 // Lightweight record used by the gallery / index.json.

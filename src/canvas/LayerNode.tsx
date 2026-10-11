@@ -202,6 +202,11 @@ export function LayerNode({
       onDblTap={() => {
         if (layer.type === 'text') onStartEdit?.(layer.id)
       }}
+      onDragStart={(e) => {
+        // Alt/⌥-drag drags out a copy (as in Figma): one stays put, this one moves.
+        const evt = e.evt as MouseEvent | undefined
+        if (evt?.altKey) useEditor.getState().duplicateLayer(layer.id, { inPlace: true })
+      }}
       onDragEnd={(e) =>
         onChange(layer.id, {
           x: Math.round(e.target.x()),
