@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Eye, Pause, Play, RotateCcw } from 'lucide-react'
+import { Eye, PanelBottomClose, PanelBottomOpen, Pause, Play, RotateCcw } from 'lucide-react'
 import { useEditor } from '../store/editor'
 import { useTimeline } from '../store/timeline'
 import { useUI } from '../store/ui'
@@ -47,6 +47,8 @@ export function TimelineBar() {
   const setTime = useTimeline((s) => s.setTime)
   const showRest = useUI((s) => s.showRest)
   const setShowRest = useUI((s) => s.setShowRest)
+  const timelineOpen = useUI((s) => s.timelineOpen)
+  const setTimelineOpen = useUI((s) => s.setTimelineOpen)
 
   if (!doc) return null
   const { durationSec, fps, bpm, beatsPerBar = 4 } = doc.timeline
@@ -79,6 +81,18 @@ export function TimelineBar() {
         }`}
       >
         <Eye size={15} />
+      </button>
+
+      <button
+        onClick={() => setTimelineOpen(!timelineOpen)}
+        title={timelineOpen ? 'Hide timeline' : 'Show timeline — animation bars per layer'}
+        className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+          timelineOpen
+            ? 'bg-[var(--color-accent)] text-white'
+            : 'text-[var(--color-muted)] hover:bg-[var(--color-panel-2)] hover:text-[var(--color-text)]'
+        }`}
+      >
+        {timelineOpen ? <PanelBottomClose size={15} /> : <PanelBottomOpen size={15} />}
       </button>
 
       <input

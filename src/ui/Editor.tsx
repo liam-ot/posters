@@ -11,6 +11,7 @@ import { Toolbar } from './Toolbar'
 import { Inspector } from './Inspector'
 import { LayersPanel } from './LayersPanel'
 import { TimelineBar } from './TimelineBar'
+import { TimelinePanel } from './TimelinePanel'
 import { ExportDialog } from './ExportDialog'
 
 export function Editor() {
@@ -19,6 +20,7 @@ export function Editor() {
   const doc = useEditor((s) => s.doc)
   const renameDoc = useEditor((s) => s.renameDoc)
   const setView = useUI((s) => s.setView)
+  const timelineOpen = useUI((s) => s.timelineOpen)
   const undo = () => useEditor.temporal.getState().undo()
   const redo = () => useEditor.temporal.getState().redo()
 
@@ -81,14 +83,17 @@ export function Editor() {
           <LayersPanel />
         </aside>
 
-        <main className="relative min-w-0 flex-1">
-          <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2">
-            <Toolbar />
+        <main className="flex min-w-0 flex-1 flex-col">
+          <div className="relative min-h-0 flex-1">
+            <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2">
+              <Toolbar />
+            </div>
+            <CanvasStage />
+            <div className="absolute bottom-3 left-1/2 z-10 max-w-[calc(100%-1.5rem)] -translate-x-1/2">
+              <TimelineBar />
+            </div>
           </div>
-          <CanvasStage />
-          <div className="absolute bottom-3 left-1/2 z-10 max-w-[calc(100%-1.5rem)] -translate-x-1/2">
-            <TimelineBar />
-          </div>
+          {timelineOpen && <TimelinePanel />}
         </main>
 
         <aside className="w-72 shrink-0 border-l border-[var(--color-border)] bg-[var(--color-panel)]">

@@ -198,6 +198,9 @@ export const useEditor = create<EditorState>()(
       // Only the document is tracked for undo/redo — not transient selection.
       limit: 100,
       partialize: (state) => ({ doc: state.doc }),
+      // Selection-only updates leave `doc` untouched; don't record them as
+      // empty undo steps (immer keeps the reference when nothing changed).
+      equality: (past, current) => past.doc === current.doc,
     },
   ),
 )

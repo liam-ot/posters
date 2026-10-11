@@ -578,6 +578,27 @@ playback/export reflect the changes.
 - Not verified: live-editor playback speed with *wobble* on a very large SVG (it regenerates every path each frame).
 - Still open: Tier 3 SVG import (clipPath, embedded images) — needs the user's go-ahead.
 
+**Phase 5**
+- Built: `TimelinePanel` (docked under the canvas, opened from a new TimelineBar button, collapsed by default, resizable
+  by its top edge), ruler with seconds + beat ticks + bar lines, one row per animated layer (top first, click selects),
+  in/out bars draggable by body and edges, loop bars striped with period ticks, playhead + ruler scrubbing (pauses
+  playback), "Fit to N bars" button. Drag maths is pure and tested in `src/animation/retime.ts` (11 new tests, 261 total).
+- Layout: in/out share one lane per layer; each loop gets its own lane. Loop bars aren't draggable (they always span
+  the timeline; their period is edited in the Inspector).
+- Snapping: with a BPM, the dragged edge snaps to beats (for a move, the anchored edge: start for in, end for out);
+  Alt disables it. Without a BPM, times round to 0.01s. The in/out window is kept inside the timeline, minimum 0.05s.
+- **Deviation:** the panel docks below the canvas area (full width, like After Effects/Premiere) rather than floating
+  above the TimelineBar, so it doesn't cover the artwork. The floating bar stays at the bottom of the canvas, directly
+  above the panel. The canvas re-fits its zoom when the panel opens or is resized (existing fit-on-resize behaviour).
+- **Pre-existing bug fixed:** zundo recorded every store update, including selection-only changes, as an undo step,
+  so clicking a layer added an empty history entry and the first ⌘Z after it appeared to do nothing. The temporal store now
+  compares `doc` by reference (`equality`). This affects undo everywhere, for the better.
+- Verified in the app: one drag = one undo step (store untouched mid-drag, live preview of the bar + times label);
+  a click selects without committing; beat snapping and Alt free-timing; out bars stay end-anchored; Fit to bars (5s →
+  6s at 120 BPM, undoable); resize; scrubbing; retimed values save/reload; export follows the new timing (scale-in moved
+  to 1.37s renders nothing at 1.2s, mid-pop at 2.0s). No console errors.
+- Not verified: dragging with a real mouse (tested with dispatched pointer events; pointer capture was stubbed).
+
 ## 8. Progress
 
 - [x] Phase 0 — Groundwork (done; awaiting user review)
@@ -585,4 +606,4 @@ playback/export reflect the changes.
 - [x] Phase 2 — Path rendering + shape library (done; awaiting user review)
 - [x] Phase 3 — SVG import (done; awaiting user review) — stretch (clipPath, embedded images) NOT done, needs the user's go-ahead
 - [x] Phase 4 — Path-level animation presets (done; awaiting user review)
-- [ ] Phase 5 — Timeline panel
+- [x] Phase 5 — Timeline panel (done; awaiting user review)
