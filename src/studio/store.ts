@@ -17,6 +17,13 @@ interface StudioState {
   /** Mutate the asset immutably; stamps updatedAt and a new version. */
   edit: (fn: (draft: PuppetAsset) => void) => void
   setMotion: (id: string | undefined) => void
+  /** View option, not part of the character. */
+  showMesh: boolean
+  setShowMesh: (v: boolean) => void
+  /** Last mesh build time, ms (for the stats line). */
+  meshMs?: number
+  /** Replace the asset without an undo step (e.g. building a missing mesh on open). */
+  silently: (fn: (draft: PuppetAsset) => void) => void
 }
 
 export const useStudio = create<StudioState>()(
@@ -39,6 +46,14 @@ export const useStudio = create<StudioState>()(
           }
         }),
       setMotion: (motionId) => set({ motionId }),
+      showMesh: true,
+      setShowMesh: (showMesh) => set({ showMesh }),
+      silently: (fn) => {
+        const t = useStudio.temporal.getState()
+        t.pause()
+        useStudio.getState().edit(fn)
+        t.resume()
+      },
     }),
     {
       limit: 100,

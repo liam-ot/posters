@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, Plus, Redo2, Trash2, Undo2 } from 'lucide-react'
+import { ChevronLeft, Plus, RefreshCw, Redo2, Trash2, Undo2 } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import { useStudio } from './store'
 import { StudioCanvas } from './StudioCanvas'
@@ -7,7 +7,9 @@ import { useUI } from '../store/ui'
 import { saveAsset } from '../library/api'
 import { renderAssetThumbnail } from '../export/thumbnail'
 import { collectSwatches, replaceSwatch } from '../svg/palette'
-import { PanelSection } from '../ui/controls'
+import { Field, PanelSection, Slider, Toggle } from '../ui/controls'
+import { isMeshCurrent } from '../puppet/build'
+import { rebuildMesh } from './mesh'
 import { SwatchGrid } from '../ui/SwatchGrid'
 import type { PuppetAsset } from '../puppet/types'
 
@@ -194,6 +196,55 @@ function CharacterInspector({ asset }: { asset: PuppetAsset }) {
   )
 }
 
+function MeshSection({ asset }: { asset: PuppetAsset }) {
+  const showMesh = useStudio((s) => s.showMesh)
+  const setShowMesh = useStudio((s) => s.setShowMesh)
+  const meshMs = useStudio((s) => s.meshMs)
+  const [detail, setDetail] = useState(asset.puppet.detail)
+  useEffect(() => setDetail(asset.puppet.detail), [asset.puppet.detail])
+
+  // Rebuild once the slider settles: a build takes a noticeable moment.
+  useEffect(() => {
+    if (detail === asset.puppet.detail) return
+    const h = setTimeout(() => rebuildMesh(asset, detail), 250)
+    return () => clearTimeout(h)
+  }, [detail, asset])
+
+  const mesh = asset.puppet.mesh
+  const current = isMeshCurrent(asset)
+  return (
+    <PanelSection title="Mesh">
+      <Field label="Detail">
+        <Slider value={detail} min={100} max={600} step={25} onChange={setDetail} />
+        <span className="w-9 shrink-0 text-right text-xs tabular-nums text-[var(--color-muted)]">{detail}</span>
+      </Field>
+      <Field label="Show mesh">
+        <Toggle value={showMesh} onChange={setShowMesh} />
+      </Field>
+      {mesh && (
+        <p className="pt-1 text-[11px] text-[var(--color-muted)]">
+          {mesh.tris.length / 3} triangles · {mesh.verts.length / 2} points
+          {meshMs !== undefined && ` · built in ${meshMs} ms`}
+        </p>
+      )}
+      {mesh && !current && (
+        <p className="pt-1 text-[11px] text-amber-400">
+          The artwork changed since this mesh was built, so it isn’t used. Rebuild it.
+        </p>
+      )}
+      <button
+        onClick={() => rebuildMesh(asset, detail)}
+        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs text-[var(--color-text)] hover:bg-[var(--color-panel-2)]"
+      >
+        <RefreshCw size={12} /> Rebuild mesh
+      </button>
+      <p className="mt-2 text-[11px] text-[var(--color-muted)]">
+        The mesh follows the artwork’s outline; pins bend it. More detail bends more smoothly but costs more per frame.
+      </p>
+    </PanelSection>
+  )
+}
+
 /** Puppet studio: rig a library character (docs/plans/puppet-pins.md). */
 export function Studio() {
   const asset = useStudio((s) => s.asset)
@@ -207,6 +258,13 @@ export function Studio() {
   useEffect(() => {
     if (!asset) setView('gallery')
   }, [asset, setView])
+
+  // A character without a mesh gets one on open (a one-off cost, not an undo step).
+  const needsMesh = !!asset && !asset.puppet.mesh
+  useEffect(() => {
+    const a = useStudio.getState().asset
+    if (needsMesh && a) rebuildMesh(a, a.puppet.detail, true)
+  }, [needsMesh])
 
   if (!asset) return null
 
@@ -258,6 +316,7 @@ export function Studio() {
           <StudioCanvas asset={asset} />
         </main>
         <aside className="w-72 shrink-0 overflow-y-auto border-l border-[var(--color-border)] bg-[var(--color-panel)]">
+          <MeshSection asset={asset} />
           <CharacterInspector asset={asset} />
         </aside>
       </div>

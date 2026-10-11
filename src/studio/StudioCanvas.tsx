@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
 import { Moon, Sun } from 'lucide-react'
-import { Group, Layer, Path, Rect, Stage } from 'react-konva'
+import { Group, Layer, Path, Rect, Shape, Stage } from 'react-konva'
+import { useStudio } from './store'
+import { isMeshCurrent } from '../puppet/build'
 import type { PuppetAsset } from '../puppet/types'
 import { previewInstance } from '../puppet/convert'
 import { pathNodeConfigs } from '../render/paths'
@@ -22,6 +24,9 @@ export function StudioCanvas({ asset }: { asset: PuppetAsset }) {
   const { width: cw, height: ch } = useContainerSize(containerRef)
   const { width: w, height: h } = asset.size
   const paths = useMemo(() => pathNodeConfigs(previewInstance(asset)), [asset])
+  const showMesh = useStudio((s) => s.showMesh)
+  const mesh = asset.puppet.mesh
+  const current = useMemo(() => isMeshCurrent(asset), [asset])
 
   const scale = cw && ch ? Math.min((cw - PAD * 2) / w, (ch - PAD * 2) / h) : 1
   const x = (cw - w * scale) / 2
@@ -62,10 +67,37 @@ export function StudioCanvas({ asset }: { asset: PuppetAsset }) {
               {paths.map((p) => (
                 <Path key={p.key} {...p.config} listening={false} />
               ))}
+              {showMesh && mesh && <MeshWire verts={mesh.verts} tris={mesh.tris} stale={!current} />}
             </Group>
           </Layer>
         </Stage>
       )}
     </div>
+  )
+}
+
+/** Triangle wireframe, one draw call, hairline at any zoom. */
+function MeshWire({ verts, tris, stale }: { verts: number[]; tris: number[]; stale: boolean }) {
+  return (
+    <Shape
+      listening={false}
+      stroke={stale ? '#f59e0b' : '#7c5cff'}
+      strokeWidth={1}
+      strokeScaleEnabled={false}
+      opacity={0.7}
+      sceneFunc={(ctx, shape) => {
+        ctx.beginPath()
+        for (let i = 0; i < tris.length; i += 3) {
+          const a = tris[i] * 2
+          const b = tris[i + 1] * 2
+          const c = tris[i + 2] * 2
+          ctx.moveTo(verts[a], verts[a + 1])
+          ctx.lineTo(verts[b], verts[b + 1])
+          ctx.lineTo(verts[c], verts[c + 1])
+          ctx.closePath()
+        }
+        ctx.strokeShape(shape)
+      }}
+    />
   )
 }

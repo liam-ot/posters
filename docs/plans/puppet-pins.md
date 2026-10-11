@@ -479,11 +479,29 @@ poster and every Phase-4 path preset still render identically.
   `08-unsupported.svg` shows the warnings in dialog and studio. Saved posters: 37/40 renders identical to Phase 0;
   the 3 differences are Poster 5 at t>0, which the user edited after Phase 0 (a sway loop with offset ½).
 
+**Phase 2**
+- Built: `src/puppet/mesh.ts` (pure: closing, hole filling, marching-squares contours, RDP simplification with a
+  crossing check that falls back to finer outlines, edge resampling, jittered-grid Steiner points kept clear of the
+  outline, `cdt2d` constrained Delaunay, one spacing correction to hit the target count, speck removal, components);
+  `src/puppet/build.ts` (browser rasterising to a 512 px silhouette, `meshKey`, `buildMesh` → character space);
+  studio Mesh section (detail 100–600, debounced rebuild = one undo step, stats, stale warning, show-mesh toggle),
+  wireframe overlay, automatic first build on open (not an undo step). Dependency: `cdt2d` (+ `src/types/cdt2d.d.ts`).
+  14 new tests (306 total).
+- The silhouette rasteriser draws path geometry directly with Canvas 2D (`Path2D`), not through Konva: only coverage
+  matters, and dashes are treated as solid.
+- Mesh key hashes geometry, visibility, transforms, stroke widths, viewBox, size and detail — not colours, so recolouring
+  never invalidates a rig.
+- Verified: 9 SVG fixtures, the taco (from Poster 5's stored source, read-only) and star/squiggle/spiral shapes all mesh
+  in 20–62 ms with 270–354 triangles for detail 300; contact sheet checked visually. On the taco the two legs have open
+  space between them (no triangle crosses the gap), arms are separate from the body except at the shoulder, each finger
+  is meshed, the face lies inside the filled body. In the studio: auto-build on open (0 undo steps), detail 300 → 500
+  rebuilt once to 512 triangles in 72 ms as one undo step, and undo restores both.
+
 ## 9. Progress
 
 - [x] Phase 0 — Groundwork + phase offset (done; awaiting user review)
 - [x] Phase 1 — Library, studio shell, linked instances (done; awaiting user review)
-- [ ] Phase 2 — Silhouette + mesh
+- [x] Phase 2 — Silhouette + mesh (done; awaiting user review)
 - [ ] Phase 3 — Solver, binding, posing
 - [ ] Phase 4 — Motions, pin animation, chains
 - [ ] Phase 5 — Performance & polish
