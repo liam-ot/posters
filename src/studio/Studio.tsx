@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, Plus, RefreshCw, Redo2, Trash2, Undo2 } from 'lucide-react'
+import { ChevronLeft, Plus, RefreshCw, Redo2, RotateCcw, Trash2, Undo2 } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import { useStudio } from './store'
 import { StudioCanvas } from './StudioCanvas'
@@ -7,11 +7,12 @@ import { useUI } from '../store/ui'
 import { saveAsset } from '../library/api'
 import { renderAssetThumbnail } from '../export/thumbnail'
 import { collectSwatches, replaceSwatch } from '../svg/palette'
-import { Field, PanelSection, Slider, Toggle } from '../ui/controls'
+import { Field, PanelSection, Slider, TextInput, Toggle } from '../ui/controls'
+import { removePin, setPose } from './pins'
 import { isMeshCurrent } from '../puppet/build'
 import { rebuildMesh } from './mesh'
 import { SwatchGrid } from '../ui/SwatchGrid'
-import type { PuppetAsset } from '../puppet/types'
+import type { PuppetAsset, PuppetPin } from '../puppet/types'
 
 const iconBtn =
   'flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-muted)] hover:bg-[var(--color-panel-2)] hover:text-[var(--color-text)]'
@@ -41,6 +42,15 @@ function useStudioShortcuts() {
     const onKey = (e: KeyboardEvent) => {
       const el = document.activeElement
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return
+      const studio = useStudio.getState()
+      if ((e.key === 'Delete' || e.key === 'Backspace') && studio.selectedPinId) {
+        e.preventDefault()
+        const id = studio.selectedPinId
+        studio.edit((d) => removePin(d, id))
+        studio.selectPin(undefined)
+        return
+      }
+      if (e.key === 'Escape') return studio.selectPin(undefined)
       if (!(e.metaKey || e.ctrlKey)) return
       const k = e.key.toLowerCase()
       const t = useStudio.temporal.getState()
@@ -146,15 +156,155 @@ function MotionsPanel({ asset }: { asset: PuppetAsset }) {
 }
 
 function PinsPanel({ asset }: { asset: PuppetAsset }) {
+  const selectedPinId = useStudio((s) => s.selectedPinId)
+  const selectPin = useStudio((s) => s.selectPin)
+  const motionId = useStudio((s) => s.motionId)
+  const edit = useStudio((s) => s.edit)
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const pins = asset.puppet.pins
+  const motion = asset.motions.find((m) => m.id === motionId)
+  const anyPosed = motion
+    ? Object.keys(motion.poses ?? {}).length > 0
+    : pins.some((p) => p.pose)
+
   return (
     <section className="p-2">
-      <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted)]">
-        Pins
+      <div className="mb-1 flex items-center justify-between px-1">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted)]">Pins</span>
+        {anyPosed && (
+          <button
+            title={motion ? `Clear this motion’s poses (back to the base pose)` : 'Put every pin back where it was placed'}
+            onClick={() =>
+              edit((d) => {
+                if (motionId) {
+                  const m = d.motions.find((x) => x.id === motionId)
+                  if (m) delete m.poses
+                } else for (const p of d.puppet.pins) delete p.pose
+              })
+            }
+            className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-[var(--color-muted)] hover:bg-[var(--color-panel-2)] hover:text-[var(--color-text)]"
+          >
+            <RotateCcw size={11} /> Reset pose
+          </button>
+        )}
       </div>
-      {asset.puppet.pins.length === 0 && (
-        <p className="px-2 text-[11px] text-[var(--color-muted)]">No pins yet.</p>
+      {pins.length === 0 && (
+        <p className="px-2 text-[11px] text-[var(--color-muted)]">
+          No pins yet. Click the artwork to add one — at least one on each part you want to move, and some on parts that
+          should stay still.
+        </p>
       )}
+      {pins.map((pin) => {
+        const selected = pin.id === selectedPinId
+        return (
+          <div
+            key={pin.id}
+            onClick={() => selectPin(pin.id)}
+            className={`group flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-xs ${
+              selected
+                ? 'bg-[var(--color-accent)]/20 text-[var(--color-text)]'
+                : 'text-[var(--color-muted)] hover:bg-[var(--color-panel-2)] hover:text-[var(--color-text)]'
+            }`}
+          >
+            <span
+              className={`h-2.5 w-2.5 shrink-0 rounded-full ${pin.kind === 'starch' ? 'bg-amber-500' : 'border-2 border-[var(--color-accent)] bg-white'}`}
+            />
+            {renaming === pin.id ? (
+              <input
+                autoFocus
+                defaultValue={pin.name}
+                onBlur={(e) => {
+                  const name = e.target.value.trim()
+                  if (name && name !== pin.name)
+                    edit((d) => {
+                      d.puppet.pins.find((x) => x.id === pin.id)!.name = name
+                    })
+                  setRenaming(null)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                  if (e.key === 'Escape') setRenaming(null)
+                }}
+                className="h-6 min-w-0 flex-1 rounded bg-[var(--color-panel-2)] px-1 text-xs text-[var(--color-text)] outline-none"
+              />
+            ) : (
+              <span className="min-w-0 flex-1 truncate" onDoubleClick={() => setRenaming(pin.id)}>
+                {pin.name ?? 'Pin'}
+              </span>
+            )}
+            <button
+              title="Delete pin"
+              onClick={(e) => {
+                e.stopPropagation()
+                edit((d) => removePin(d, pin.id))
+                if (selected) selectPin(undefined)
+              }}
+              className="hidden h-6 w-6 items-center justify-center rounded-md hover:text-[var(--color-text)] group-hover:flex"
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
+        )
+      })}
     </section>
+  )
+}
+
+function PinSection({ asset }: { asset: PuppetAsset }) {
+  const selectedPinId = useStudio((s) => s.selectedPinId)
+  const motionId = useStudio((s) => s.motionId)
+  const edit = useStudio((s) => s.edit)
+  const pin = asset.puppet.pins.find((p) => p.id === selectedPinId)
+  if (!pin) return null
+  const motion = asset.motions.find((m) => m.id === motionId)
+  const posed = motion ? !!motion.poses?.[pin.id] : !!pin.pose
+  const update = (change: Partial<PuppetPin>) =>
+    edit((d) => {
+      const p = d.puppet.pins.find((x) => x.id === pin.id)
+      if (p) Object.assign(p, change)
+    })
+  const size = Math.min(asset.size.width, asset.size.height)
+
+  return (
+    <PanelSection title={pin.kind === 'starch' ? 'Starch pin' : 'Pin'}>
+      <Field label="Name">
+        <TextInput value={pin.name ?? ''} onChange={(v) => update({ name: v })} />
+      </Field>
+      {pin.kind === 'starch' ? (
+        <>
+          <Field label="Radius">
+            <Slider
+              value={pin.radius ?? 40}
+              min={Math.max(2, size * 0.02)}
+              max={size * 0.6}
+              step={1}
+              onChange={(v) => update({ radius: Math.round(v) })}
+            />
+          </Field>
+          <Field label="Stiffness">
+            <Slider value={pin.amount ?? 0.6} min={0.05} max={1} step={0.05} onChange={(v) => update({ amount: v })} />
+          </Field>
+          <p className="text-[11px] text-[var(--color-muted)]">
+            Keeps the area inside the circle from bending — a hat, a face, a logo. It doesn’t hold anything in place.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="text-[11px] text-[var(--color-muted)]">
+            Drag it on the canvas to pose {motion ? `“${motion.name}”` : 'the base pose'}. Pins you don’t drag hold their
+            part of the artwork still.
+          </p>
+          {posed && (
+            <button
+              onClick={() => edit((d) => setPose(d, pin.id, motionId, undefined))}
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs text-[var(--color-text)] hover:bg-[var(--color-panel-2)]"
+            >
+              <RotateCcw size={12} /> Reset this pin
+            </button>
+          )}
+        </>
+      )}
+    </PanelSection>
   )
 }
 
@@ -228,16 +378,18 @@ function MeshSection({ asset }: { asset: PuppetAsset }) {
         </p>
       )}
       {mesh && !current && (
-        <p className="pt-1 text-[11px] text-amber-400">
-          The artwork changed since this mesh was built, so it isn’t used. Rebuild it.
-        </p>
+        <>
+          <p className="pt-1 text-[11px] text-amber-400">
+            The artwork changed since this mesh was built, so it isn’t used. Rebuild it.
+          </p>
+          <button
+            onClick={() => rebuildMesh(asset, detail)}
+            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs text-[var(--color-text)] hover:bg-[var(--color-panel-2)]"
+          >
+            <RefreshCw size={12} /> Rebuild mesh
+          </button>
+        </>
       )}
-      <button
-        onClick={() => rebuildMesh(asset, detail)}
-        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs text-[var(--color-text)] hover:bg-[var(--color-panel-2)]"
-      >
-        <RefreshCw size={12} /> Rebuild mesh
-      </button>
       <p className="mt-2 text-[11px] text-[var(--color-muted)]">
         The mesh follows the artwork’s outline; pins bend it. More detail bends more smoothly but costs more per frame.
       </p>
@@ -316,6 +468,7 @@ export function Studio() {
           <StudioCanvas asset={asset} />
         </main>
         <aside className="w-72 shrink-0 overflow-y-auto border-l border-[var(--color-border)] bg-[var(--color-panel)]">
+          <PinSection asset={asset} />
           <MeshSection asset={asset} />
           <CharacterInspector asset={asset} />
         </aside>

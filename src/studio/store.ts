@@ -17,6 +17,8 @@ interface StudioState {
   /** Mutate the asset immutably; stamps updatedAt and a new version. */
   edit: (fn: (draft: PuppetAsset) => void) => void
   setMotion: (id: string | undefined) => void
+  selectedPinId?: string
+  selectPin: (id: string | undefined) => void
   /** View option, not part of the character. */
   showMesh: boolean
   setShowMesh: (v: boolean) => void
@@ -31,7 +33,7 @@ export const useStudio = create<StudioState>()(
     (set) => ({
       asset: null,
       motionId: undefined,
-      load: (asset) => set({ asset: normalizeAsset(asset), motionId: undefined }),
+      load: (asset) => set({ asset: normalizeAsset(asset), motionId: undefined, selectedPinId: undefined }),
       close: () => set({ asset: null, motionId: undefined }),
       edit: (fn) =>
         set((s) => {
@@ -46,6 +48,8 @@ export const useStudio = create<StudioState>()(
           }
         }),
       setMotion: (motionId) => set({ motionId }),
+      selectedPinId: undefined,
+      selectPin: (selectedPinId) => set({ selectedPinId }),
       showMesh: true,
       setShowMesh: (showMesh) => set({ showMesh }),
       silently: (fn) => {

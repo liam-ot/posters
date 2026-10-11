@@ -124,7 +124,7 @@ export function placeInstance(
 }
 
 /** An unplaced instance at the character's natural size — for the studio and thumbnails. */
-export function previewInstance(asset: PuppetAsset): PuppetLayer {
+export function previewInstance(asset: PuppetAsset, motionId?: string): PuppetLayer {
   return {
     id: `preview:${asset.id}`,
     name: asset.name,
@@ -139,6 +139,7 @@ export function previewInstance(asset: PuppetAsset): PuppetLayer {
     type: 'puppet',
     assetId: asset.id,
     assetVersion: asset.version,
+    motionId,
     snapshot: asset,
   }
 }

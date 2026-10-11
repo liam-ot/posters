@@ -497,11 +497,36 @@ poster and every Phase-4 path preset still render identically.
   is meshed, the face lies inside the filled body. In the studio: auto-build on open (0 undo steps), detail 300 → 500
   rebuilt once to 512 triangles in 72 ms as one undo step, and undo restores both.
 
+**Phase 3**
+- Built: `src/puppet/arap.ts` (two-step ARAP, dense Cholesky, soft barycentric pins, starch as triangle weights,
+  a 1e-5 rest regulariser so one-pin and pinless-island cases stay solvable), `bind.ts` (grid point locator, nearest
+  triangle for points just outside), `deform.ts` (pin positions incl. motion overrides, factorisation cache per mesh +
+  pin placement, binding cache per source paths + mesh, `solveMesh`, `deformPaths`, `posedPathData`), `meshKey.ts`
+  (split out to avoid an import cycle); `getLayerPaths` bends `puppet` layers into their pose, so canvas, export and
+  thumbnails all follow. Studio: click the artwork to add a pin, Alt-click for starch, drag to pose (base pose or the
+  selected motion; live preview, one undo step on release), starch radius handle, deformed wireframe, pins list
+  (select, rename, delete), Reset pose / Reset this pin, Delete and Escape keys, Pin / Starch pin inspector. 17 new tests
+  (323 total).
+- Decisions while building:
+  - Islands without pins are held by the regulariser instead of an explicit centroid anchor (simpler; tested).
+  - Posing a pin back onto its placement clears the pose, so "at rest" is exactly rest (identity guarantee holds).
+  - A pin's placement (`at`) can't be dragged; dragging always poses (as in After Effects). Delete and re-add to move it.
+  - The "Rebuild mesh" button only shows when the mesh is stale (user feedback: the slider already rebuilds).
+- Verified in the app (scratch copy of the taco + scratch poster, both deleted): 6 pins + 1 starch placed by real mouse
+  events, each one undo step; dragging the waving hand bends the arm smoothly, store untouched until release (one undo
+  step); with only one body pin the body leans to absorb a big pull (expected ARAP behaviour, as in After Effects) — a
+  second body pin holds it upright. Leg isolation: moving the right foot 57 px moved the unpinned left foot ≤ 4.3 px and
+  the hat 0.2 px. Starch (default strength) cut hat edge distortion from 3.27% to 1.28% while the head tilts. In a
+  poster the posed instance's live path data equals the export's for all 80 paths (all bent); the selection box stays
+  the layer box; pose saved, survives reload, and shows in the library thumbnail.
+- Performance: one solve 1.2 ms, solve + all 80 paths 2.7 ms on the taco. A studio drag frame costs ~28 ms, dominated
+  by React/Konva re-rendering the paths — fine for posing, to profile in Phase 5 for playback.
+
 ## 9. Progress
 
 - [x] Phase 0 — Groundwork + phase offset (done; awaiting user review)
 - [x] Phase 1 — Library, studio shell, linked instances (done; awaiting user review)
 - [x] Phase 2 — Silhouette + mesh (done; awaiting user review)
-- [ ] Phase 3 — Solver, binding, posing
+- [x] Phase 3 — Solver, binding, posing (done; awaiting user review)
 - [ ] Phase 4 — Motions, pin animation, chains
 - [ ] Phase 5 — Performance & polish

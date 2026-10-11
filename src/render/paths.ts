@@ -2,6 +2,7 @@ import type { PathConfig } from 'konva/lib/shapes/Path'
 import type { ShapeLayer, SvgLayer, VectorPath } from '../types/poster'
 import type { PuppetLayer } from '../puppet/types'
 import { instanceSource } from '../puppet/source'
+import { posedPathData } from '../puppet/deform'
 import { generateShape, SHAPES } from '../shapes/library'
 import { strokeDash } from '../canvas/stroke'
 import type { PathFrame, PathInfo } from '../animation/types'
@@ -71,6 +72,19 @@ function viewBoxPaths(
   return out
 }
 
+const posedCache = new WeakMap<VectorPath[], { data: string[]; out: VectorPath[] }>()
+
+/** The instance's paths bent into its pose (docs/adr/0012); the same array when unposed. */
+function posePaths(layer: PuppetLayer, paths: VectorPath[]): VectorPath[] {
+  const data = posedPathData(layer.snapshot, layer.motionId)
+  if (!data) return paths
+  const hit = posedCache.get(paths)
+  if (hit && hit.data === data) return hit.out
+  const out = paths.map((p, i) => ({ ...p, d: data[i] }))
+  posedCache.set(paths, { data, out })
+  return out
+}
+
 export type PathLayer = ShapeLayer | SvgLayer | PuppetLayer
 
 /** The vector paths of a shape, SVG or character layer, in layer space. */
@@ -80,7 +94,7 @@ export function getLayerPaths(layer: PathLayer): VectorPath[] {
       return viewBoxPaths(layer.paths, layer.viewBox, layer.width, layer.height)
     case 'puppet': {
       const src = instanceSource(layer)
-      return viewBoxPaths(src.paths, src.viewBox, layer.width, layer.height)
+      return viewBoxPaths(posePaths(layer, src.paths), src.viewBox, layer.width, layer.height)
     }
     case 'shape':
       return shapePaths(layer)
