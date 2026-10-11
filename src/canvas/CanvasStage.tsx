@@ -128,26 +128,37 @@ export function CanvasStage() {
     }
   }, [removeSelected])
 
+  // Figma-style navigation: two-finger scroll pans, pinch (which browsers report
+  // as wheel + ctrlKey) or ⌘/Ctrl + wheel zooms around the pointer, Shift + wheel
+  // pans sideways for mouse wheels.
   const onWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault()
     const stage = stageRef.current
     if (!stage) return
-    const pointer = stage.getPointerPosition()
-    if (!pointer) return
-    const oldScale = view.scale
-    const mousePointTo = {
-      x: (pointer.x - view.x) / oldScale,
-      y: (pointer.y - view.y) / oldScale,
+    const { deltaMode, ctrlKey, metaKey, shiftKey } = e.evt
+    // Line-based deltas (some mice / Firefox) → pixels.
+    const unit = deltaMode === 1 ? 16 : deltaMode === 2 ? 400 : 1
+    let dx = e.evt.deltaX * unit
+    let dy = e.evt.deltaY * unit
+
+    if (ctrlKey || metaKey) {
+      const pointer = stage.getPointerPosition()
+      if (!pointer) return
+      // Proportional, so a pinch feels continuous; capped so one wheel notch isn't a leap.
+      const factor = Math.exp(-Math.max(-50, Math.min(50, dy)) * 0.01)
+      setView((v) => {
+        const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, v.scale * factor))
+        const px = (pointer.x - v.x) / v.scale
+        const py = (pointer.y - v.y) / v.scale
+        return { scale, x: pointer.x - px * scale, y: pointer.y - py * scale }
+      })
+      return
     }
-    const factor = 1.05
-    const newScale =
-      e.evt.deltaY > 0 ? oldScale / factor : oldScale * factor
-    const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale))
-    setView({
-      scale,
-      x: pointer.x - mousePointTo.x * scale,
-      y: pointer.y - mousePointTo.y * scale,
-    })
+    if (shiftKey && dx === 0) {
+      dx = dy
+      dy = 0
+    }
+    setView((v) => ({ ...v, x: v.x - dx, y: v.y - dy }))
   }
 
   const onStageMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {

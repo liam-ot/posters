@@ -22,6 +22,18 @@ interface UIState {
   setTimelineOpen: (v: boolean) => void
   timelineHeight: number
   setTimelineHeight: (px: number) => void
+  // Animation bar folded into a small button in the canvas corner (remembered per browser).
+  barCollapsed: boolean
+  setBarCollapsed: (v: boolean) => void
+}
+
+const BAR_KEY = 'poster-studio:bar-collapsed'
+function readBarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(BAR_KEY) === '1'
+  } catch {
+    return false
+  }
 }
 
 export const useUI = create<UIState>((set) => ({
@@ -39,4 +51,13 @@ export const useUI = create<UIState>((set) => ({
   setTimelineOpen: (timelineOpen) => set({ timelineOpen }),
   timelineHeight: 220,
   setTimelineHeight: (timelineHeight) => set({ timelineHeight }),
+  barCollapsed: readBarCollapsed(),
+  setBarCollapsed: (barCollapsed) => {
+    try {
+      localStorage.setItem(BAR_KEY, barCollapsed ? '1' : '0')
+    } catch {
+      /* private mode etc. — just don't remember it */
+    }
+    set({ barCollapsed })
+  },
 }))

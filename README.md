@@ -80,8 +80,9 @@ both the app and the local file API — there is no separate backend.
 | Delete selection | `Delete` / `Backspace` |
 | Nudge (×10 with Shift) | Arrow keys |
 | Add rectangle / ellipse / text | `R` / `O` / `T` |
-| Pan canvas | hold `Space` + drag |
-| Zoom | scroll / pinch |
+| Pan canvas | two-finger scroll on a trackpad · `Shift` + wheel sideways · hold `Space` + drag |
+| Zoom | pinch · `⌘`/`Ctrl` + scroll |
+| Copy a layer by dragging | hold `Alt` (`⌥`) while dragging it |
 | Deselect | `Esc` |
 | Edit text | double-click a text layer |
 | Studio: add pin / starch pin | click / `Alt`-click the artwork |

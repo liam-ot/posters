@@ -11,17 +11,19 @@ import { syncLinkedAssets } from '../library/sync'
 import { Toolbar } from './Toolbar'
 import { Inspector } from './Inspector'
 import { LayersPanel } from './LayersPanel'
-import { TimelineBar } from './TimelineBar'
+import { TimelineBar, TimelineBarCollapsed, useClock } from './TimelineBar'
 import { TimelinePanel } from './TimelinePanel'
 import { ExportDialog } from './ExportDialog'
 
 export function Editor() {
+  useClock()
   useAutosave()
   useShortcuts()
   const doc = useEditor((s) => s.doc)
   const renameDoc = useEditor((s) => s.renameDoc)
   const setView = useUI((s) => s.setView)
   const timelineOpen = useUI((s) => s.timelineOpen)
+  const barCollapsed = useUI((s) => s.barCollapsed)
   const undo = () => useEditor.temporal.getState().undo()
   const redo = () => useEditor.temporal.getState().redo()
 
@@ -96,9 +98,15 @@ export function Editor() {
               <Toolbar />
             </div>
             <CanvasStage />
-            <div className="absolute bottom-3 left-1/2 z-10 max-w-[calc(100%-1.5rem)] -translate-x-1/2">
-              <TimelineBar />
-            </div>
+            {barCollapsed ? (
+              <div className="absolute bottom-3 left-3 z-10">
+                <TimelineBarCollapsed />
+              </div>
+            ) : (
+              <div className="absolute bottom-3 left-1/2 z-10 max-w-[calc(100%-1.5rem)] -translate-x-1/2">
+                <TimelineBar />
+              </div>
+            )}
           </div>
           {timelineOpen && <TimelinePanel />}
         </main>
