@@ -349,9 +349,9 @@ function CharacterInspector({ asset }: { asset: PuppetAsset }) {
         )}
         <SwatchGrid
           swatches={swatches}
-          onChange={(hex, next) =>
+          onChange={(hex, next, alpha) =>
             edit((d) => {
-              d.source.paths = replaceSwatch(d.source.paths, hex, next)
+              d.source.paths = replaceSwatch(d.source.paths, hex, next, alpha)
             })
           }
         />

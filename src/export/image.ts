@@ -1,5 +1,5 @@
 import type { PosterDoc } from '../types/poster'
-import { renderSceneToCanvas } from './renderScene'
+import { flattenOnWhite, renderSceneToCanvas } from './renderScene'
 import { useTimeline } from '../store/timeline'
 
 export interface ExportResult {
@@ -32,7 +32,8 @@ export async function exportImageToRoot(
 ): Promise<ExportResult> {
   await document.fonts.ready
   const t = frame === 'current' ? useTimeline.getState().time : 0
-  const canvas = await renderSceneToCanvas(doc, t, scale, { rest: frame === 'rest' })
+  const rendered = await renderSceneToCanvas(doc, t, scale, { rest: frame === 'rest' })
+  const canvas = format === 'jpg' ? flattenOnWhite(rendered) : rendered
   const mime = format === 'jpg' ? 'image/jpeg' : 'image/png'
   const dataURL = canvas.toDataURL(mime, format === 'jpg' ? 0.92 : undefined)
   const dataBase64 = dataURL.slice(dataURL.indexOf(',') + 1)

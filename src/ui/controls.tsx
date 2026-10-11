@@ -1,5 +1,6 @@
 import * as RSlider from '@radix-ui/react-slider'
 import { useEffect, useState } from 'react'
+import { ColorPicker } from './ColorPicker'
 
 export function Field({
   label,
@@ -99,6 +100,7 @@ export function TextInput({
   )
 }
 
+/** A colour field: picker (with opacity) + text. Accepts hex, #rrggbbaa, rgba() and `transparent`. */
 export function ColorInput({
   value,
   onChange,
@@ -108,12 +110,7 @@ export function ColorInput({
 }) {
   return (
     <div className="flex w-full items-center gap-1.5">
-      <input
-        type="color"
-        value={value?.slice(0, 7) || '#000000'}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-7 w-7 shrink-0 cursor-pointer rounded-md border border-[var(--color-border)] bg-transparent p-0.5"
-      />
+      <ColorPicker value={value || '#000000'} onChange={(c) => onChange(c)} />
       <TextInput value={value} onChange={onChange} />
     </div>
   )

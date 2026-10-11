@@ -188,3 +188,19 @@ export async function renderSceneToCanvas(
   stage.destroy()
   return canvas
 }
+
+/**
+ * JPG and MP4 can't store transparency (it would come out black), so a
+ * transparent background or transparent areas are flattened onto white, as
+ * design tools do for JPG. PNG keeps real transparency.
+ */
+export function flattenOnWhite(canvas: HTMLCanvasElement): HTMLCanvasElement {
+  const out = document.createElement('canvas')
+  out.width = canvas.width
+  out.height = canvas.height
+  const ctx = out.getContext('2d')!
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, out.width, out.height)
+  ctx.drawImage(canvas, 0, 0)
+  return out
+}

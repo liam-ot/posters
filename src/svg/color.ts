@@ -82,3 +82,8 @@ export function replaceRgb(color: string, hex: string): string {
   if (!from || !to) return color
   return formatColor({ ...to, a: from.a })
 }
+
+/** Always `#rrggbbaa`, even when opaque — for overrides that must state their opacity. */
+export function formatColorExplicit(c: RGBA): string {
+  return formatColor({ ...c, a: 1 }) + hex2(c.a * 255)
+}

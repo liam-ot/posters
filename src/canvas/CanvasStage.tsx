@@ -3,6 +3,7 @@ import Konva from 'konva'
 import { Group, Layer as KLayer, Line, Rect, Stage, Transformer } from 'react-konva'
 import { useEditor } from '../store/editor'
 import { useUI } from '../store/ui'
+import { parseColor } from '../svg/color'
 import { useFonts } from '../store/fonts'
 import { LayerNode } from './LayerNode'
 import { TextEditorOverlay } from './TextEditorOverlay'
@@ -22,6 +23,19 @@ const ALL_ANCHORS = [
   'bottom-center',
   'bottom-right',
 ]
+
+// 16 px checkerboard tile for transparent artboard backgrounds.
+const checker = (() => {
+  const c = document.createElement('canvas')
+  c.width = c.height = 16
+  const g = c.getContext('2d')!
+  g.fillStyle = '#f4f4f6'
+  g.fillRect(0, 0, 16, 16)
+  g.fillStyle = '#d6d8de'
+  g.fillRect(0, 0, 8, 8)
+  g.fillRect(8, 8, 8, 8)
+  return c
+})()
 
 export function CanvasStage() {
   const doc = useEditor((s) => s.doc)
@@ -51,6 +65,7 @@ export function CanvasStage() {
       ? doc?.layers.find((l) => l.id === selectedIds[0])
       : undefined
 
+  const bgAlpha = parseColor(doc?.artboard.background ?? '')?.a ?? 1
   const W = doc?.artboard.width ?? 0
   const H = doc?.artboard.height ?? 0
 
@@ -224,6 +239,10 @@ export function CanvasStage() {
           }}
         >
           <KLayer listening={!space}>
+            {/* A see-through background shows a checkerboard, as in Figma (editor only, not exported). */}
+            {bgAlpha < 1 && (
+              <Rect x={0} y={0} width={W} height={H} fillPatternImage={checker as unknown as HTMLImageElement} fillPatternScale={{ x: 1 / view.scale, y: 1 / view.scale }} listening={false} />
+            )}
             {/* Artboard backdrop + frame */}
             <Rect
               x={0}

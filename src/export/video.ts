@@ -1,5 +1,5 @@
 import type { PosterDoc } from '../types/poster'
-import { renderSceneToCanvas } from './renderScene'
+import { flattenOnWhite, renderSceneToCanvas } from './renderScene'
 import type { ExportResult } from './image'
 
 function sanitizeName(name: string) {
@@ -45,7 +45,7 @@ export async function exportVideoToRoot(
 
     for (let i = 0; i < frameCount; i++) {
       const t = i / fps
-      const canvas = await renderSceneToCanvas(doc, t, scale)
+      const canvas = flattenOnWhite(await renderSceneToCanvas(doc, t, scale))
       const dataURL = canvas.toDataURL('image/png')
       const dataBase64 = dataURL.slice(dataURL.indexOf(',') + 1)
       await post('/api/export/video/frame', { sessionId, index: i, dataBase64 })

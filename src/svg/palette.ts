@@ -1,9 +1,11 @@
 import type { Paint, VectorPath } from '../types/poster'
-import { replaceRgb, rgbHex } from './color'
+import { formatColor, parseColor, replaceRgb, rgbHex } from './color'
 
 export interface Swatch {
   hex: string // opaque #rrggbb
   count: number // how many fills/strokes/gradient stops use it
+  /** Opacity shared by every use, or 1 when they differ (then only the hue is shown). */
+  alpha: number
 }
 
 function paintColors(paint: Paint | null): string[] {
@@ -14,44 +16,61 @@ function paintColors(paint: Paint | null): string[] {
 /** Unique colours used by a layer's paths, most used first (Canva-style palette). */
 export function collectSwatches(paths: VectorPath[]): Swatch[] {
   const counts = new Map<string, number>()
+  const alphas = new Map<string, number | null>()
   for (const p of paths) {
     for (const c of [...paintColors(p.fill), ...paintColors(p.stroke)]) {
       const hex = rgbHex(c)
-      if (hex) counts.set(hex, (counts.get(hex) ?? 0) + 1)
+      if (!hex) continue
+      counts.set(hex, (counts.get(hex) ?? 0) + 1)
+      const a = parseColor(c)?.a ?? 1
+      const seen = alphas.get(hex)
+      alphas.set(hex, seen === undefined ? a : seen === a ? a : null)
     }
   }
   return [...counts]
-    .map(([hex, count]) => ({ hex, count }))
+    .map(([hex, count]) => ({ hex, count, alpha: alphas.get(hex) ?? 1 }))
     .sort((a, b) => b.count - a.count || a.hex.localeCompare(b.hex))
 }
 
-function recolorPaint(paint: Paint | null, from: string, to: string): Paint | null {
+/** New colour for a use of a swatch: its own alpha kept, or `alpha` when given. */
+function swapColor(color: string, to: string, alpha?: number): string {
+  if (alpha === undefined) return replaceRgb(color, to)
+  const c = parseColor(to)
+  return c ? formatColor({ ...c, a: alpha }) : color
+}
+
+function recolorPaint(paint: Paint | null, from: string, to: string, alpha?: number): Paint | null {
   if (!paint) return paint
   if (paint.type === 'solid') {
-    return rgbHex(paint.color) === from ? { ...paint, color: replaceRgb(paint.color, to) } : paint
+    return rgbHex(paint.color) === from ? { ...paint, color: swapColor(paint.color, to, alpha) } : paint
   }
   return {
     ...paint,
     stops: paint.stops.map((s) =>
-      rgbHex(s.color) === from ? { ...s, color: replaceRgb(s.color, to) } : s,
+      rgbHex(s.color) === from ? { ...s, color: swapColor(s.color, to, alpha) } : s,
     ),
   }
 }
 
-/** Replace one palette colour everywhere it appears. Each paint keeps its own alpha. */
-export function replaceSwatch(paths: VectorPath[], from: string, to: string): VectorPath[] {
+/**
+ * Replace one palette colour everywhere it appears. Each paint keeps its own
+ * alpha, unless `alpha` is given (the opacity was changed) — then all get it.
+ */
+export function replaceSwatch(paths: VectorPath[], from: string, to: string, alpha?: number): VectorPath[] {
   return paths.map((p) => {
-    const fill = recolorPaint(p.fill, from, to)
-    const stroke = recolorPaint(p.stroke, from, to)
+    const fill = recolorPaint(p.fill, from, to, alpha)
+    const stroke = recolorPaint(p.stroke, from, to, alpha)
     return fill === p.fill && stroke === p.stroke ? p : { ...p, fill, stroke }
   })
 }
 
 function remapPaint(paint: Paint | null, map: Record<string, string>): Paint | null {
   if (!paint) return paint
+  // An override written with alpha (#rrggbbaa) sets it; #rrggbb keeps each paint's own.
   const swap = (c: string) => {
     const to = map[rgbHex(c) ?? '']
-    return to ? replaceRgb(c, to) : c
+    if (!to) return c
+    return hasExplicitAlpha(to) ? swapColor(c, to, parseColor(to)!.a) : replaceRgb(c, to)
   }
   if (paint.type === 'solid') {
     const color = swap(paint.color)
@@ -76,3 +95,6 @@ export function remapSwatches(paths: VectorPath[], map: Record<string, string>):
     return fill === p.fill && stroke === p.stroke ? p : { ...p, fill, stroke }
   })
 }
+
+/** `#rrggbbaa` / `#rgba` — a colour that states its opacity. */
+export const hasExplicitAlpha = (c: string) => /^#([0-9a-f]{4}|[0-9a-f]{8})$/i.test(c.trim())

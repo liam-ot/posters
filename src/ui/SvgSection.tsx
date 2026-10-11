@@ -3,14 +3,11 @@ import { Eye, EyeOff, RotateCcw } from 'lucide-react'
 import type { Layer, Paint, SvgLayer, VectorPath } from '../types/poster'
 import { collectSwatches, replaceSwatch } from '../svg/palette'
 import { parseSvg } from '../svg/parse'
-import { replaceRgb, rgbHex } from '../svg/color'
 import { NumberInput, PanelSection } from './controls'
 import { SwatchGrid } from './SwatchGrid'
+import { ColorPicker } from './ColorPicker'
 
 const MAX_ROWS = 300
-
-const swatchClass =
-  'h-[22px] w-[22px] shrink-0 cursor-pointer rounded-md border border-[var(--color-border)] bg-transparent p-0.5'
 
 /** A fill/stroke chip: editable for solid paints, a preview for gradients. */
 function PaintChip({
@@ -32,12 +29,11 @@ function PaintChip({
   }
   if (paint.type === 'solid') {
     return (
-      <input
-        type="color"
+      <ColorPicker
+        value={paint.color}
         title={`${label} ${paint.color}`}
-        value={rgbHex(paint.color) ?? '#000000'}
-        onChange={(e) => onChange(replaceRgb(paint.color, e.target.value))}
-        className={swatchClass}
+        chipClassName="h-[22px] w-[22px]"
+        onChange={(c) => onChange(c)}
       />
     )
   }
@@ -90,7 +86,7 @@ export function SvgSection({
 
         <SwatchGrid
           swatches={swatches}
-          onChange={(hex, next) => setPaths(replaceSwatch(layer.paths, hex, next))}
+          onChange={(hex, next, alpha) => setPaths(replaceSwatch(layer.paths, hex, next, alpha))}
         />
         <p className="mt-2 text-[11px] text-[var(--color-muted)]">
           Changing a swatch recolours every path that uses it.

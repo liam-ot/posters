@@ -11,7 +11,8 @@ import { assetFromLayer, instanceFromLayer } from '../puppet/convert'
 import { relink } from '../puppet/link'
 import { isMeshCurrent } from '../puppet/meshKey'
 import { openCharacter } from '../studio/open'
-import { collectSwatches } from '../svg/palette'
+import { collectSwatches, hasExplicitAlpha } from '../svg/palette'
+import { formatColor, formatColorExplicit, parseColor } from '../svg/color'
 import { Field, NumberInput, PanelSection, Select } from './controls'
 import { SwatchGrid } from './SwatchGrid'
 
@@ -42,10 +43,19 @@ export function PuppetLayerSection({
   const swatches = useMemo(() => collectSwatches(snapshot.source.paths), [snapshot.source.paths])
   const overrides = layer.colorOverrides ?? {}
 
-  const setOverride = (hex: string, next: string) => {
+  // An override states its opacity (#rrggbbaa) once it was changed, so later hue
+  // edits keep it; otherwise each path keeps its own opacity.
+  const setOverride = (hex: string, next: string, alpha: number | undefined) => {
     const map = { ...overrides }
-    if (next.toLowerCase() === hex.toLowerCase()) delete map[hex]
-    else map[hex] = next
+    const prev = map[hex]
+    const c = parseColor(next)
+    if (!c) return
+    const explicit = alpha !== undefined || (prev !== undefined && hasExplicitAlpha(prev))
+    const value = explicit ? formatColorExplicit(c) : formatColor({ ...c, a: 1 })
+    const swatch = swatches.find((s) => s.hex === hex)
+    // Back to exactly the character's colour → no override.
+    if (value.toLowerCase() === hex.toLowerCase() && (!explicit || (swatch && c.a === swatch.alpha))) delete map[hex]
+    else map[hex] = value
     patch({ colorOverrides: Object.keys(map).length ? map : undefined } as Partial<Layer>)
   }
 
@@ -151,7 +161,11 @@ export function PuppetLayerSection({
       <PanelSection title="Colours in this poster">
         <SwatchGrid
           swatches={swatches}
-          display={(hex) => overrides[hex] ?? hex}
+          display={(s) => {
+            const o = overrides[s.hex]
+            // A hue-only override still shows the paints' own opacity.
+            return o && hasExplicitAlpha(o) ? o : formatColor({ ...parseColor(o ?? s.hex)!, a: s.alpha })
+          }}
           onChange={setOverride}
         />
         <p className="mt-2 text-[11px] text-[var(--color-muted)]">

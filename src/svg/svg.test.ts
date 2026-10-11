@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Paint, VectorPath } from '../types/poster'
 import { formatColor, parseColor, replaceRgb, rgbHex, withAlpha } from './color'
-import { collectSwatches, replaceSwatch } from './palette'
+import { collectSwatches, remapSwatches, replaceSwatch } from './palette'
 import { isSafeHref, sanitizeCss } from './sanitize'
 import { circlePath, linePath, parseDashArray, polyPath, rectPath } from './shapes'
 import { formatNotes } from './parse'
@@ -127,10 +127,33 @@ describe('palette', () => {
 
   it('counts unique RGB colours across fills, strokes and gradient stops, most used first', () => {
     expect(collectSwatches(paths)).toEqual([
-      { hex: '#ff0000', count: 4 },
-      { hex: '#000000', count: 1 },
-      { hex: '#00ff00', count: 1 },
+      // Uses of red differ in opacity (one is 50%), so the swatch shows it solid.
+      { hex: '#ff0000', count: 4, alpha: 1 },
+      { hex: '#000000', count: 1, alpha: 1 },
+      { hex: '#00ff00', count: 1, alpha: 1 },
     ])
+  })
+
+  it('a swatch reports the opacity its uses share', () => {
+    expect(collectSwatches([path({ fill: solid('#11223380') }), path({ fill: solid('#11223380') })])).toEqual([
+      { hex: '#112233', count: 2, alpha: 128 / 255 },
+    ])
+  })
+
+  it('replaceSwatch with an opacity sets it on every use', () => {
+    const out = replaceSwatch(paths, '#ff0000', '#0000ff', 0)
+    expect(out[0].fill).toEqual(solid('#0000ff00'))
+    expect(out[2].fill).toEqual(solid('#0000ff00'))
+    expect((out[3].fill as Extract<Paint, { type: 'linear' }>).stops[1].color).toBe('#0000ff00')
+  })
+
+  it('overrides: #rrggbbaa sets opacity, #rrggbb keeps each paint’s own', () => {
+    const half = remapSwatches(paths, { '#ff0000': '#0000ff' })
+    expect(half[2].fill).toEqual(solid('#0000ff80'))
+    const clear = remapSwatches(paths, { '#ff0000': '#0000ff00' })
+    expect(clear[0].fill).toEqual(solid('#0000ff00'))
+    const solidAgain = remapSwatches(paths, { '#ff0000': '#0000ffff' })
+    expect(solidAgain[2].fill).toEqual(solid('#0000ff'))
   })
 
   it('replaceSwatch recolours every use and keeps each paint’s alpha', () => {
