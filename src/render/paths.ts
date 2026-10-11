@@ -1,9 +1,10 @@
 import type { PathConfig } from 'konva/lib/shapes/Path'
-import type { ShapeLayer, SvgLayer, VectorPath } from '../types/poster'
+import type { Matrix2D, ShapeLayer, SvgLayer, VectorPath } from '../types/poster'
 import type { PuppetLayer } from '../puppet/types'
 import { instanceSource } from '../puppet/source'
-import { deformPaths, posedPathData } from '../puppet/deform'
+import { deformSegs, posedPathData } from '../puppet/deform'
 import type { UV } from '../puppet/types'
+import type { Seg } from '../animation/wobble'
 import { generateShape, SHAPES } from '../shapes/library'
 import { strokeDash } from '../canvas/stroke'
 import type { PathFrame, PathInfo } from '../animation/types'
@@ -81,8 +82,9 @@ const posedCache = new WeakMap<VectorPath[], { data: string[]; out: VectorPath[]
  */
 function posePaths(layer: PuppetLayer, paths: VectorPath[], pins?: Map<string, UV>): VectorPath[] {
   if (pins) {
-    const moving = deformPaths(layer.snapshot, pins)
-    return moving ? paths.map((p, i) => ({ ...p, d: moving[i] })) : paths
+    // Animated: numeric geometry, drawn without re-parsing strings every frame.
+    const moving = deformSegs(layer.snapshot, pins)
+    return moving ? paths.map((p, i) => ({ ...p, segs: moving[i] })) : paths
   }
   const data = posedPathData(layer.snapshot, layer.motionId)
   if (!data) return paths
@@ -130,6 +132,10 @@ export function pathConfig(path: VectorPath): PathConfig {
 export interface PathNode {
   key: string
   config: PathConfig
+  /** Animated geometry: draw with `segsSceneFunc` (or batched) instead of a Konva.Path. */
+  segs?: Seg[]
+  /** local → layer matrix, for batched drawing. */
+  matrix: Matrix2D
 }
 
 /**
@@ -144,5 +150,5 @@ export function pathNodeConfigs(
 ): PathNode[] {
   return applyPathFrames(getLayerPaths(layer, pins), frames, infos)
     .filter((p) => p.visible)
-    .map((p) => ({ key: p.id, config: pathConfig(p) }))
+    .map((p) => ({ key: p.id, config: pathConfig(p), segs: p.segs, matrix: p.transform }))
 }

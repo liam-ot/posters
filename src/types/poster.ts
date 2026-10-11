@@ -2,6 +2,7 @@
 // One PosterDoc is persisted as a single JSON file at data/posters/<id>.json.
 
 import type { PuppetLayer } from '../puppet/types'
+import type { Seg } from '../animation/wobble'
 
 export type BlendMode = GlobalCompositeOperation
 
@@ -181,6 +182,12 @@ export interface VectorPath {
   fillRule: 'nonzero' | 'evenodd'
   opacity: number
   visible: boolean
+  /**
+   * Animated geometry for this frame (absolute M/L/C/Q/Z, local units). When set
+   * it is drawn instead of `d`, skipping string writing and parsing — characters
+   * re-bend every frame (docs/adr/0012). Never saved.
+   */
+  segs?: Seg[]
 }
 
 // Built-in parametric shapes (docs/adr/0007). Geometry is derived at render time.

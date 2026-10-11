@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, Plus, RefreshCw, Redo2, RotateCcw, Trash2, Undo2 } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, Plus, RefreshCw, Redo2, RotateCcw, Trash2, Undo2 } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import { useStudio } from './store'
 import { StudioCanvas } from './StudioCanvas'
@@ -11,6 +11,7 @@ import { collectSwatches, replaceSwatch } from '../svg/palette'
 import { Field, PanelSection, Slider, TextInput, Toggle } from '../ui/controls'
 import { removePin, setPose } from './pins'
 import { isMeshCurrent } from '../puppet/build'
+import { locateInMesh } from '../puppet/deform'
 import { rebuildMesh } from './mesh'
 import { MotionSection, PinMotionControls } from './MotionPanels'
 import { StudioLanes, StudioPlayback } from './playback'
@@ -166,6 +167,11 @@ function PinsPanel({ asset }: { asset: PuppetAsset }) {
   const [renaming, setRenaming] = useState<string | null>(null)
   const pins = asset.puppet.pins
   const motion = asset.motions.find((m) => m.id === motionId)
+  // Pins left outside after the mesh was rebuilt at a different detail or the artwork changed.
+  const outside = useMemo(
+    () => new Set(pins.filter((p) => asset.puppet.mesh && !locateInMesh(asset, p.at[0], p.at[1])).map((p) => p.id)),
+    [asset, pins],
+  )
   const anyPosed = motion
     ? Object.keys(motion.poses ?? {}).length > 0
     : pins.some((p) => p.pose)
@@ -212,6 +218,11 @@ function PinsPanel({ asset }: { asset: PuppetAsset }) {
             <span
               className={`h-2.5 w-2.5 shrink-0 rounded-full ${pin.kind === 'starch' ? 'bg-amber-500' : 'border-2 border-[var(--color-accent)] bg-white'}`}
             />
+            {outside.has(pin.id) && (
+              <span title="Outside the mesh (the artwork or mesh changed) — it follows the nearest part. Delete and re-add it to be exact.">
+                <AlertTriangle size={12} className="shrink-0 text-amber-400" />
+              </span>
+            )}
             {renaming === pin.id ? (
               <input
                 autoFocus

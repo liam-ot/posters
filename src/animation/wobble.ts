@@ -160,24 +160,57 @@ export function subdivide(segs: Seg[], maxLen: number): Seg[] {
   return out
 }
 
-/** Move every point of `segs` by `displace(x, y)` and write path data. Control points move too, which keeps curves smooth. */
-export function displaceSegments(segs: Seg[], displace: (x: number, y: number) => P): string {
-  let d = ''
-  const pt = (x: number, y: number) => {
-    const [dx, dy] = displace(x, y)
-    return `${n(x + dx)} ${n(y + dy)}`
+/**
+ * Move every point of `segs` by `displace(x, y)`. Control points move too, which
+ * keeps curves smooth. Numeric, so animated frames can be drawn without
+ * writing and re-parsing path strings (docs/adr/0012).
+ */
+export function displaceSegs(segs: Seg[], displace: (x: number, y: number) => P): Seg[] {
+  const out: Seg[] = new Array(segs.length)
+  for (let i = 0; i < segs.length; i++) {
+    const s = segs[i]
+    switch (s[0]) {
+      case 'M':
+      case 'L': {
+        const [dx, dy] = displace(s[1], s[2])
+        out[i] = [s[0], s[1] + dx, s[2] + dy]
+        break
+      }
+      case 'C': {
+        const a = displace(s[1], s[2])
+        const b = displace(s[3], s[4])
+        const c = displace(s[5], s[6])
+        out[i] = ['C', s[1] + a[0], s[2] + a[1], s[3] + b[0], s[4] + b[1], s[5] + c[0], s[6] + c[1]]
+        break
+      }
+      case 'Q': {
+        const a = displace(s[1], s[2])
+        const b = displace(s[3], s[4])
+        out[i] = ['Q', s[1] + a[0], s[2] + a[1], s[3] + b[0], s[4] + b[1]]
+        break
+      }
+      case 'Z':
+        out[i] = s
+        break
+    }
   }
+  return out
+}
+
+/** Path data for segments. */
+export function segsToPathData(segs: Seg[]): string {
+  let d = ''
   for (const s of segs) {
     switch (s[0]) {
       case 'M':
       case 'L':
-        d += `${s[0]}${pt(s[1], s[2])}`
+        d += `${s[0]}${n(s[1])} ${n(s[2])}`
         break
       case 'C':
-        d += `C${pt(s[1], s[2])} ${pt(s[3], s[4])} ${pt(s[5], s[6])}`
+        d += `C${n(s[1])} ${n(s[2])} ${n(s[3])} ${n(s[4])} ${n(s[5])} ${n(s[6])}`
         break
       case 'Q':
-        d += `Q${pt(s[1], s[2])} ${pt(s[3], s[4])}`
+        d += `Q${n(s[1])} ${n(s[2])} ${n(s[3])} ${n(s[4])}`
         break
       case 'Z':
         d += 'Z'
@@ -185,6 +218,11 @@ export function displaceSegments(segs: Seg[], displace: (x: number, y: number) =
     }
   }
   return d
+}
+
+/** Move every point of `segs` by `displace(x, y)` and write path data. */
+export function displaceSegments(segs: Seg[], displace: (x: number, y: number) => P): string {
+  return segsToPathData(displaceSegs(segs, displace))
 }
 
 const cache = new Map<string, Seg[]>()

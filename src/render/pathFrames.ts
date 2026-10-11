@@ -4,7 +4,7 @@ import type { Paint, VectorPath } from '../types/poster'
 import type { PathFrame, PathInfo } from '../animation/types'
 import { cleanPattern, patternLength, revealDash } from '../animation/dash'
 import { loopNoiseAt } from '../animation/noise'
-import { displaceSegments, preparedSegments } from '../animation/wobble'
+import { displaceSegments, displaceSegs, preparedSegments } from '../animation/wobble'
 import { withAlpha } from '../svg/color'
 import { multiply } from './matrix'
 
@@ -35,13 +35,13 @@ const firstColor = (paint: Paint): string =>
 /** Uniform scale of a path's transform, to turn layer px into local units. */
 const localScale = (m: VectorPath['transform']) => Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) || 1
 
-function wobbled(path: VectorPath, f: NonNullable<PathFrame['wobble']>): string {
+/** Wobble a path; works on animated numeric geometry too, so a character can bend and wobble in one pass. */
+function wobbled(path: VectorPath, f: NonNullable<PathFrame['wobble']>): Pick<VectorPath, 'd' | 'segs'> {
   const sc = localScale(path.transform)
-  const segs = preparedSegments(path.d, f.spacing / sc)
   const [a, b, c, d, e, g] = path.transform
   const freq = 1 / Math.max(1, f.size)
   const amountLocal = f.amount / sc
-  return displaceSegments(segs, (x, y) => {
+  const displace = (x: number, y: number): [number, number] => {
     // Sample the field in layer space so the look doesn't depend on viewBox units.
     const lx = a * x + c * y + e
     const ly = b * x + d * y + g
@@ -49,7 +49,10 @@ function wobbled(path: VectorPath, f: NonNullable<PathFrame['wobble']>): string 
       amountLocal * loopNoiseAt(f.seed, 0, lx * freq, ly * freq, f.cycle, f.radius),
       amountLocal * loopNoiseAt(f.seed, 1, lx * freq, ly * freq, f.cycle, f.radius),
     ]
-  })
+  }
+  // Animated character geometry is already subdivided finely enough to bend.
+  if (path.segs) return { d: path.d, segs: displaceSegs(path.segs, displace) }
+  return { d: displaceSegments(preparedSegments(path.d, f.spacing / sc), displace) }
 }
 
 /** Apply one path's frame. Returns the original object when nothing changes. */
@@ -95,7 +98,7 @@ function applyOne(path: VectorPath, f: PathFrame, info: PathInfo | undefined): V
     }
   }
 
-  if (f.wobble && f.wobble.amount > 0) p.d = wobbled(path, f.wobble)
+  if (f.wobble && f.wobble.amount > 0) Object.assign(p, wobbled(path, f.wobble))
   if (f.rise !== 0) p.transform = multiply([1, 0, 0, 1, 0, f.rise], path.transform)
   return p
 }

@@ -3,6 +3,7 @@ import type { Layer, PosterDoc } from '../types/poster'
 import { renderGenerator } from '../generators/runtime'
 import { measureTextHeight } from '../canvas/textMetrics'
 import { pathNodeConfigs } from '../render/paths'
+import { batchSceneFunc, canBatch, segsSceneFunc, type BatchItem } from '../render/segShape'
 import { evaluateLayer } from '../animation/evaluate'
 import { hasPathPresets } from '../animation/presets'
 import type { PathFrame } from '../animation/types'
@@ -96,7 +97,15 @@ function buildShape(
     case 'puppet': {
       const group = new Konva.Group()
       const infos = pathFrames ? getPathInfos(layer) : undefined
-      for (const p of pathNodeConfigs(layer, pathFrames, infos, pins)) group.add(new Konva.Path(p.config))
+      const nodes = pathNodeConfigs(layer, pathFrames, infos, pins)
+      // Same choice as the live canvas (canvas/PathNodeView): batch animated character frames.
+      if (nodes.length > 0 && canBatch(nodes)) {
+        group.add(new Konva.Shape({ sceneFunc: batchSceneFunc(nodes as BatchItem[]), listening: false }))
+      } else {
+        for (const p of nodes) {
+          group.add(p.segs ? new Konva.Shape({ ...p.config, sceneFunc: segsSceneFunc(p.segs) }) : new Konva.Path(p.config))
+        }
+      }
       return group
     }
     case 'generator': {

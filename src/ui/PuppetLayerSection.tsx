@@ -9,6 +9,7 @@ import { renderAssetThumbnail, renderThumbnail } from '../export/thumbnail'
 import { getAsset, saveAsset } from '../library/api'
 import { assetFromLayer, instanceFromLayer } from '../puppet/convert'
 import { relink } from '../puppet/link'
+import { isMeshCurrent } from '../puppet/meshKey'
 import { openCharacter } from '../studio/open'
 import { collectSwatches } from '../svg/palette'
 import { Field, PanelSection, Select } from './controls'
@@ -99,6 +100,12 @@ export function PuppetLayerSection({
             </button>
           )}
         </div>
+        {snapshot.puppet.pins.length > 0 && !isMeshCurrent(snapshot) && (
+          <p className="mt-2 text-[11px] text-amber-400">
+            This character’s artwork changed since its mesh was built, so it shows unbent. Open it in the studio to
+            rebuild the mesh.
+          </p>
+        )}
         {missing && (
           <p className="mt-2 text-[11px] text-amber-400">
             This character is no longer in the library. The poster keeps its copy.

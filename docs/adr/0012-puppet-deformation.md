@@ -41,3 +41,15 @@ Follow the After Effects Puppet tool:
 - (-) Gradient fills keep their undeformed geometry.
 - (-) Dense factorisation caps mesh size (~600 vertices); a sparse solver can replace it behind the same interface.
 - (-) Draw-on uses rest path lengths, slightly approximate while bent.
+
+## Addendum (Phase 5): rendering animated frames
+
+- While a character animates, bent geometry stays **numeric** (`VectorPath.segs`, absolute M/L/C/Q/Z) and is drawn by a
+  Konva shape that replays the commands and calls Konva's own fill/stroke — no path strings are written or re-parsed
+  per frame (Konva's JavaScript parser was 14 ms of a frame for 1,500 paths). Wobble applies to the same numbers, so
+  bending and wobbling are one pass.
+- All of an animated character's paths are drawn in **one** node (a per-path style shape feeds Konva's fill/stroke;
+  transform and opacity applied per path). Paths Konva would draw through a buffer canvas (semi-transparent with both
+  fill and stroke) keep their own nodes, so they look the same.
+- Still frames (unposed or a stored pose) keep one `Konva.Path` per path, unchanged.
+- Measured: batched == per-node drawing (0 px); 1,500-path character 24 → 61 fps in the editor, taco 73 → 121 fps.

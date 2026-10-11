@@ -53,6 +53,19 @@ both the app and the local file API — there is no separate backend.
   - **Fonts:** a curated set of bundled fonts plus your own — drag a
     `.ttf/.otf/.woff2` into the font picker’s upload button; it’s registered and
     persisted under `data/fonts/`.
+- **Characters & puppet studio** — the gallery's **Characters** tab holds reusable
+  characters, rigged once in the **puppet studio** and placed in any poster as linked
+  copies (toolbar person icon). Make one from an SVG file, or select an SVG/shape layer
+  and use **Open in puppet studio**.
+  - The studio fits a triangle **mesh** to the artwork's outline; click to drop **pins**
+    (Alt-click: **starch** pins that stiffen an area) and drag them to bend it.
+  - **Motions** (Idle, Dance…) rock between their own pose and the base pose, and pins
+    can loop (swing around a parent pin, bob, circle, beat bounce) — timed in beats so
+    they follow each poster's BPM.
+  - In a poster: pick the motion, recolour just that copy, or detach it. Library edits
+    reach linked posters the next time they open.
+  - Full guide: *Puppet Studio — how to use it* (shared doc); design in
+    `docs/plans/puppet-pins.md` and ADR-0012/0013.
 - **Export** (top-right) writes files to the **project root**:
   - `PNG` / `JPG` — the current frame at 1×/2×/3× the artboard size.
   - `MP4` — renders every frame over the timeline and assembles an H.264 video
@@ -71,6 +84,8 @@ both the app and the local file API — there is no separate backend.
 | Zoom | scroll / pinch |
 | Deselect | `Esc` |
 | Edit text | double-click a text layer |
+| Studio: add pin / starch pin | click / `Alt`-click the artwork |
+| Studio: delete pin | `Delete` / `Backspace` |
 
 ## Where files live
 
@@ -81,6 +96,7 @@ both the app and the local file API — there is no separate backend.
    ├─ index.json                    ← poster list for the gallery
    ├─ posters/<id>.json             ← one document per poster
    ├─ posters/<id>.thumb.png        ← gallery thumbnail
+   ├─ assets/<id>.json + .thumb.png ← library characters (assets/index.json lists them)
    └─ fonts/                        ← uploaded custom fonts
 ```
 

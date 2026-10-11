@@ -547,6 +547,20 @@ poster and every Phase-4 path preset still render identically.
 - Not done: wobble + puppet in a single displacement pass (wobble on an animated character re-normalises each frame) —
   Phase 5 performance work.
 
+**Phase 5**
+- Profiled (30 frames, 1,080 × 1,320): taco (80 paths) pins 0.01 ms, bend 3.4 ms, configs 1.9 ms, Konva build+draw
+  8.4 ms; a synthetic 1,505-path character: bend 4.3 ms, configs 4.5 ms, Konva **28.6 ms**, of which re-parsing path
+  strings was 14.4 ms and drawing 4.4 ms. Editor playback before: taco 73 fps, heavy 25 fps.
+- Built: numeric animated geometry (`VectorPath.segs`, `displaceSegs`, `deformSegs`) drawn by `segsSceneFunc`;
+  wobble applies to the same segments (the planned single pass); batched drawing of all an animated character's
+  paths in one node (`batchSceneFunc` + `StyleCache`, `PathNodesView`) used identically by the canvas, studio and
+  export; stale-mesh notice in the poster Inspector; pins left outside a rebuilt mesh flagged in the pins list;
+  README section; ADR-0012 addendum.
+- After: taco **121 fps** (display limit), heavy **61 fps** in the editor. Batched == per-node segment drawing (0 px);
+  segments vs the old string route: taco 1 px, heavy 24 px of 1.4 M (string rounding; segments are the exact ones).
+- Regression: 48 renders (5 saved posters + a poster using draw-on, fade paths, wobble and dash flow on shapes and an
+  SVG, 4 times × animated/rest) identical to the previous commit. Wobble on an animated character: seamless, moves.
+
 ## 9. Progress
 
 - [x] Phase 0 — Groundwork + phase offset (done; awaiting user review)
@@ -554,4 +568,4 @@ poster and every Phase-4 path preset still render identically.
 - [x] Phase 2 — Silhouette + mesh (done; awaiting user review)
 - [x] Phase 3 — Solver, binding, posing (done; awaiting user review)
 - [x] Phase 4 — Motions, pin animation, chains (done; awaiting user review)
-- [ ] Phase 5 — Performance & polish
+- [x] Phase 5 — Performance & polish (done; awaiting user review)

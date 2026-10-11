@@ -1,6 +1,6 @@
 import type { Matrix2D, VectorPath } from '../types/poster'
 import { invert, multiply } from '../render/matrix'
-import { displaceSegments, preparedSegments, type Seg } from '../animation/wobble'
+import { displaceSegments, displaceSegs, preparedSegments, segsToPathData, type Seg } from '../animation/wobble'
 import { prepareArap, type ArapSolver, type Handle } from './arap'
 import { makeLocator, placeLocated, type Located } from './bind'
 import { isMeshCurrent } from './meshKey'
@@ -132,21 +132,30 @@ export function solveMesh(asset: PuppetAsset, positions: Map<string, UV>): Float
 }
 
 /**
- * Deformed path data for each source path (same order), or null when nothing
- * moves — then callers keep the original paths, exactly.
+ * Deformed geometry for each source path (same order), as numeric segments in
+ * the path's local units; null when nothing moves. Used every frame while a
+ * character animates — no strings are written or parsed.
  */
-export function deformPaths(asset: PuppetAsset, positions: Map<string, UV>): string[] | null {
+export function deformSegs(asset: PuppetAsset, positions: Map<string, UV>): Seg[][] | null {
   const deformed = solveMesh(asset, positions)
   if (!deformed) return null
   const mesh = asset.puppet.mesh!
   return bindingsFor(asset, mesh).map((b) => {
     let k = 0
     const L = b.toLocal
-    return displaceSegments(b.segs, (x, y) => {
+    return displaceSegs(b.segs, (x, y) => {
       const [cx, cy] = placeLocated(b.located[k++], mesh.tris, deformed)
       return [L[0] * cx + L[2] * cy + L[4] - x, L[1] * cx + L[3] * cy + L[5] - y]
     })
   })
+}
+
+/**
+ * Deformed path data for each source path (same order), or null when nothing
+ * moves — then callers keep the original paths, exactly.
+ */
+export function deformPaths(asset: PuppetAsset, positions: Map<string, UV>): string[] | null {
+  return deformSegs(asset, positions)?.map(segsToPathData) ?? null
 }
 
 const posed = new WeakMap<PuppetAsset, Map<string, string[] | null>>()
