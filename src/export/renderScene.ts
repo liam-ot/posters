@@ -89,7 +89,8 @@ function buildShape(
       return image
     }
     case 'shape':
-    case 'svg': {
+    case 'svg':
+    case 'puppet': {
       const group = new Konva.Group()
       const infos = pathFrames ? getPathInfos(layer) : undefined
       for (const p of pathNodeConfigs(layer, pathFrames, infos)) group.add(new Konva.Path(p.config))

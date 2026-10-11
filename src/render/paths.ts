@@ -1,5 +1,7 @@
 import type { PathConfig } from 'konva/lib/shapes/Path'
 import type { ShapeLayer, SvgLayer, VectorPath } from '../types/poster'
+import type { PuppetLayer } from '../puppet/types'
+import { instanceSource } from '../puppet/source'
 import { generateShape, SHAPES } from '../shapes/library'
 import { strokeDash } from '../canvas/stroke'
 import type { PathFrame, PathInfo } from '../animation/types'
@@ -47,26 +49,42 @@ function shapePaths(layer: ShapeLayer): VectorPath[] {
 const svgCache = new WeakMap<VectorPath[], { key: string; out: VectorPath[] }>()
 
 /**
- * An SVG layer stretches its viewBox over the layer box (like
+ * SVG artwork stretches its viewBox over the layer box (like
  * preserveAspectRatio="none"), so the scale goes into each path's transform —
- * strokes scale with it, as they do in SVG. Cached per (paths, box).
+ * strokes scale with it, as they do in SVG. Cached per (paths, box). Used by SVG
+ * layers and by character instances (docs/adr/0013).
  */
-function svgPaths(layer: SvgLayer): VectorPath[] {
-  const { viewBox: vb } = layer
-  const key = `${layer.width}x${layer.height}|${vb.x},${vb.y},${vb.width},${vb.height}`
-  const hit = svgCache.get(layer.paths)
+function viewBoxPaths(
+  paths: VectorPath[],
+  vb: SvgLayer['viewBox'],
+  width: number,
+  height: number,
+): VectorPath[] {
+  const key = `${width}x${height}|${vb.x},${vb.y},${vb.width},${vb.height}`
+  const hit = svgCache.get(paths)
   if (hit && hit.key === key) return hit.out
-  const sx = layer.width / vb.width
-  const sy = layer.height / vb.height
+  const sx = width / vb.width
+  const sy = height / vb.height
   const base: [number, number, number, number, number, number] = [sx, 0, 0, sy, -vb.x * sx, -vb.y * sy]
-  const out = layer.paths.map((p) => ({ ...p, transform: multiply(base, p.transform) }))
-  svgCache.set(layer.paths, { key, out })
+  const out = paths.map((p) => ({ ...p, transform: multiply(base, p.transform) }))
+  svgCache.set(paths, { key, out })
   return out
 }
 
-/** The vector paths of a shape or SVG layer, in layer space. */
-export function getLayerPaths(layer: ShapeLayer | SvgLayer): VectorPath[] {
-  return layer.type === 'svg' ? svgPaths(layer) : shapePaths(layer)
+export type PathLayer = ShapeLayer | SvgLayer | PuppetLayer
+
+/** The vector paths of a shape, SVG or character layer, in layer space. */
+export function getLayerPaths(layer: PathLayer): VectorPath[] {
+  switch (layer.type) {
+    case 'svg':
+      return viewBoxPaths(layer.paths, layer.viewBox, layer.width, layer.height)
+    case 'puppet': {
+      const src = instanceSource(layer)
+      return viewBoxPaths(src.paths, src.viewBox, layer.width, layer.height)
+    }
+    case 'shape':
+      return shapePaths(layer)
+  }
 }
 
 /** Konva.Path props for one vector path — shared by the live canvas and export. */
@@ -97,7 +115,7 @@ export interface PathNode {
  * animation `frames` (and the paths' measured `infos`) they are animated first.
  */
 export function pathNodeConfigs(
-  layer: ShapeLayer | SvgLayer,
+  layer: PathLayer,
   frames?: PathFrame[],
   infos: PathInfo[] = [],
 ): PathNode[] {

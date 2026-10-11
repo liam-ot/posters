@@ -7,6 +7,7 @@ import { useEditor } from '../store/editor'
 import { useUI } from '../store/ui'
 import { useAutosave } from '../hooks/useAutosave'
 import { useShortcuts } from '../hooks/useShortcuts'
+import { syncLinkedAssets } from '../library/sync'
 import { Toolbar } from './Toolbar'
 import { Inspector } from './Inspector'
 import { LayersPanel } from './LayersPanel'
@@ -23,6 +24,12 @@ export function Editor() {
   const timelineOpen = useUI((s) => s.timelineOpen)
   const undo = () => useEditor.temporal.getState().undo()
   const redo = () => useEditor.temporal.getState().redo()
+
+  // Pull library edits into linked characters on open and on return from the studio.
+  const docId = doc?.id
+  useEffect(() => {
+    if (docId) void syncLinkedAssets()
+  }, [docId])
 
   // If we somehow land here without a doc, return to the gallery.
   useEffect(() => {

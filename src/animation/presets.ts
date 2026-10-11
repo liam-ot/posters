@@ -272,9 +272,9 @@ export const PRESETS = Object.fromEntries(defs.map((d) => [d.id, d])) as Record<
 
 export const PRESET_LIST = defs
 
-/** Presets that can be added to a layer in a given phase. Path presets only apply to svg/shape layers. */
+/** Presets that can be added to a layer in a given phase. Path presets only apply to vector layers. */
 export function presetsFor(phase: AnimationPhase, layerType?: string): AnimationPresetDef[] {
-  const pathLayer = layerType === 'svg' || layerType === 'shape'
+  const pathLayer = layerType === 'svg' || layerType === 'shape' || layerType === 'puppet'
   return defs.filter(
     (d) => d.phases.includes(phase) && (d.appliesTo === 'all' || pathLayer),
   )

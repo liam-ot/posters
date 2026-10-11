@@ -1,10 +1,16 @@
 import { create } from 'zustand'
 
-export type AppView = 'gallery' | 'editor'
+export type AppView = 'gallery' | 'editor' | 'studio'
+export type GalleryTab = 'posters' | 'characters'
 
 interface UIState {
   view: AppView
   setView: (view: AppView) => void
+  galleryTab: GalleryTab
+  setGalleryTab: (tab: GalleryTab) => void
+  // Where the puppet studio's back button returns to.
+  studioReturn: 'gallery' | 'editor'
+  openStudio: (from: 'gallery' | 'editor') => void
   // bumped to request a "zoom to fit" from the canvas
   fitNonce: number
   requestFit: () => void
@@ -21,6 +27,10 @@ interface UIState {
 export const useUI = create<UIState>((set) => ({
   view: 'gallery',
   setView: (view) => set({ view }),
+  galleryTab: 'posters',
+  setGalleryTab: (galleryTab) => set({ galleryTab }),
+  studioReturn: 'gallery',
+  openStudio: (studioReturn) => set({ view: 'studio', studioReturn }),
   fitNonce: 0,
   requestFit: () => set((s) => ({ fitNonce: s.fitNonce + 1 })),
   showRest: false,

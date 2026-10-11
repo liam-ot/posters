@@ -17,7 +17,8 @@ export function SvgImportDialog({
 }: {
   pending: PendingSvg | null
   onKeepVector: () => void
-  onFlatImage: () => void
+  /** Omit where a flat image makes no sense (characters must be vector). */
+  onFlatImage?: () => void
   onClose: () => void
 }) {
   return (
@@ -61,15 +62,19 @@ export function SvgImportDialog({
                   >
                     Keep as vector
                   </button>
-                  <button
-                    onClick={onFlatImage}
-                    className="w-full rounded-lg border border-[var(--color-border)] py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-panel-2)]"
-                  >
-                    Use flat image instead
-                  </button>
-                  <p className="text-[11px] text-[var(--color-muted)]">
-                    A flat image looks exactly like the file, but its paths and colours can’t be edited or animated.
-                  </p>
+                  {onFlatImage && (
+                    <>
+                      <button
+                        onClick={onFlatImage}
+                        className="w-full rounded-lg border border-[var(--color-border)] py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-panel-2)]"
+                      >
+                        Use flat image instead
+                      </button>
+                      <p className="text-[11px] text-[var(--color-muted)]">
+                        A flat image looks exactly like the file, but its paths and colours can’t be edited or animated.
+                      </p>
+                    </>
+                  )}
                 </div>
               </>
             )

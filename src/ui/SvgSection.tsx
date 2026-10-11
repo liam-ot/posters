@@ -5,6 +5,7 @@ import { collectSwatches, replaceSwatch } from '../svg/palette'
 import { parseSvg } from '../svg/parse'
 import { replaceRgb, rgbHex } from '../svg/color'
 import { NumberInput, PanelSection } from './controls'
+import { SwatchGrid } from './SwatchGrid'
 
 const MAX_ROWS = 300
 
@@ -87,25 +88,10 @@ export function SvgSection({
           </div>
         )}
 
-        {swatches.length === 0 ? (
-          <p className="text-[11px] text-[var(--color-muted)]">No colours.</p>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {swatches.map((s) => (
-              <label key={s.hex} className="relative" title={`${s.hex} · used ${s.count}×`}>
-                <input
-                  type="color"
-                  value={s.hex}
-                  onChange={(e) => setPaths(replaceSwatch(layer.paths, s.hex, e.target.value))}
-                  className="h-7 w-7 cursor-pointer rounded-md border border-[var(--color-border)] bg-transparent p-0.5"
-                />
-                <span className="pointer-events-none absolute -right-1 -top-1 min-w-[14px] rounded-full bg-[var(--color-panel-2)] px-1 text-center text-[9px] leading-[14px] text-[var(--color-muted)] ring-1 ring-[var(--color-border)]">
-                  {s.count}
-                </span>
-              </label>
-            ))}
-          </div>
-        )}
+        <SwatchGrid
+          swatches={swatches}
+          onChange={(hex, next) => setPaths(replaceSwatch(layer.paths, hex, next))}
+        />
         <p className="mt-2 text-[11px] text-[var(--color-muted)]">
           Changing a swatch recolours every path that uses it.
         </p>

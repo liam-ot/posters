@@ -59,7 +59,11 @@ export interface PuppetAsset {
   kind: 'puppet'
   schemaVersion: 1
   name: string
-  /** +1 on every save; instances refresh their snapshot when it is newer. */
+  /**
+   * Revision stamp, changed on every edit (a timestamp). Instances refresh their
+   * snapshot whenever it *differs* — not only when it's larger — so undoing in the
+   * studio propagates too.
+   */
   version: number
   createdAt: string
   updatedAt: string
@@ -79,14 +83,22 @@ export interface PuppetAsset {
 
 export type LibraryAsset = PuppetAsset
 
-/**
- * A linked character placed in a poster. Renders from `snapshot` only.
- * Joins the `Layer` union in Phase 1, together with every `switch (layer.type)`.
- */
-export interface PuppetLayer extends Omit<BaseLayer, 'type'> {
+/** Listing entry for the Library (data/assets/index.json). */
+export interface AssetSummary {
+  id: string
+  kind: LibraryAsset['kind']
+  name: string
+  updatedAt: string
+  width: number
+  height: number
+  motions: number
+}
+
+/** A linked character placed in a poster. Renders from `snapshot` only (docs/adr/0013). */
+export interface PuppetLayer extends BaseLayer {
   type: 'puppet'
   assetId: string
-  /** The asset version the snapshot was taken from. */
+  /** The asset `version` the snapshot was taken from. */
   assetVersion: number
   /** Undefined = still, in the base pose. */
   motionId?: string

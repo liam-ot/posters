@@ -1,7 +1,6 @@
 import Konva from 'konva'
-import type { ShapeLayer, SvgLayer } from '../types/poster'
 import type { PathInfo } from '../animation/types'
-import { getLayerPaths } from './paths'
+import { getLayerPaths, type PathLayer } from './paths'
 
 // Konva measures path data (length + bounds) once per distinct `d`.
 const measured = new Map<string, { length: number; cx: number; cy: number }>()
@@ -26,7 +25,7 @@ const perLayer = new WeakMap<object, { key: string; out: PathInfo[] }>()
  * path presets need for dash lengths and left→right / top→bottom ordering.
  * Cached per layer object and size, so it is cheap to call every frame.
  */
-export function getPathInfos(layer: ShapeLayer | SvgLayer): PathInfo[] {
+export function getPathInfos(layer: PathLayer): PathInfo[] {
   const key = `${layer.width}x${layer.height}`
   const hit = perLayer.get(layer)
   if (hit && hit.key === key) return hit.out
@@ -39,5 +38,5 @@ export function getPathInfos(layer: ShapeLayer | SvgLayer): PathInfo[] {
   return out
 }
 
-export const isPathLayer = (layer: { type: string }): layer is ShapeLayer | SvgLayer =>
-  layer.type === 'shape' || layer.type === 'svg'
+export const isPathLayer = (layer: { type: string }): layer is PathLayer =>
+  layer.type === 'shape' || layer.type === 'svg' || layer.type === 'puppet'

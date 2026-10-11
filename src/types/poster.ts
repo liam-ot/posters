@@ -1,6 +1,8 @@
 // Core data model for a poster document.
 // One PosterDoc is persisted as a single JSON file at data/posters/<id>.json.
 
+import type { PuppetLayer } from '../puppet/types'
+
 export type BlendMode = GlobalCompositeOperation
 
 export interface ArtboardConfig {
@@ -76,6 +78,7 @@ export type LayerType =
   | 'generator'
   | 'shape'
   | 'svg'
+  | 'puppet'
 
 export type StrokeStyle = 'solid' | 'dashed' | 'dotted'
 
@@ -225,6 +228,7 @@ export type Layer =
   | GeneratorLayer
   | ShapeLayer
   | SvgLayer
+  | PuppetLayer
 
 export interface PosterDoc {
   id: string

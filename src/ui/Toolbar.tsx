@@ -15,6 +15,7 @@ import { useEditor } from '../store/editor'
 import { useUI } from '../store/ui'
 import type { GeneratorKind } from '../types/poster'
 import { ShapeLibraryMenu } from './ShapeLibraryMenu'
+import { CharacterMenu } from './CharacterMenu'
 import { SvgImportDialog, type PendingSvg } from './SvgImportDialog'
 import { flatImageUrl, importSvg } from '../svg/parse'
 
@@ -96,6 +97,7 @@ export function Toolbar() {
       </ToolButton>
 
       <ShapeLibraryMenu />
+      <CharacterMenu />
 
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>

@@ -6,6 +6,7 @@ import {
   Image as ImageIcon,
   Lock,
   PenTool,
+  PersonStanding,
   Shapes,
   Sparkles,
   Square,
@@ -32,6 +33,8 @@ function LayerIcon({ type }: { type: Layer['type'] }) {
       return <Shapes {...props} />
     case 'svg':
       return <PenTool {...props} />
+    case 'puppet':
+      return <PersonStanding {...props} />
   }
 }
 

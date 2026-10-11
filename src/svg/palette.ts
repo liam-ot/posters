@@ -46,3 +46,33 @@ export function replaceSwatch(paths: VectorPath[], from: string, to: string): Ve
     return fill === p.fill && stroke === p.stroke ? p : { ...p, fill, stroke }
   })
 }
+
+function remapPaint(paint: Paint | null, map: Record<string, string>): Paint | null {
+  if (!paint) return paint
+  const swap = (c: string) => {
+    const to = map[rgbHex(c) ?? '']
+    return to ? replaceRgb(c, to) : c
+  }
+  if (paint.type === 'solid') {
+    const color = swap(paint.color)
+    return color === paint.color ? paint : { ...paint, color }
+  }
+  const stops = paint.stops.map((s) => {
+    const color = swap(s.color)
+    return color === s.color ? s : { ...s, color }
+  })
+  return stops.every((s, i) => s === paint.stops[i]) ? paint : { ...paint, stops }
+}
+
+/**
+ * Apply several swatch replacements at once (original hex → new hex). Unlike
+ * chained `replaceSwatch` calls, a → b, b → c can't cascade a into c.
+ */
+export function remapSwatches(paths: VectorPath[], map: Record<string, string>): VectorPath[] {
+  if (Object.keys(map).length === 0) return paths
+  return paths.map((p) => {
+    const fill = remapPaint(p.fill, map)
+    const stroke = remapPaint(p.stroke, map)
+    return fill === p.fill && stroke === p.stroke ? p : { ...p, fill, stroke }
+  })
+}

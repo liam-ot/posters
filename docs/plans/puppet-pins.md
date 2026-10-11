@@ -452,10 +452,37 @@ poster and every Phase-4 path preset still render identically.
   in the app, two beat pulses with offsets 0 / ½ at 120 BPM alternate (rect peaks at 0s/1s, ellipse at 0.5s,
   measured from exported frames) and frame 4s == frame 0s.
 
+**Phase 1**
+- Built: `/api/assets` (posters and assets now share one `mountCollection` helper in `server/fileApi.ts`) +
+  `/api/assets/:id/usage`; client `src/library/` (API + snapshot sync); `puppet` layer type in every switch,
+  rendered through the existing viewBox → box path pipeline (`getLayerPaths`), so path presets (draw-on, wobble…)
+  work on characters too; per-instance colour overrides (`remapSwatches`, no cascading); gallery tabs
+  Posters | Characters with a Library grid (new from SVG with the warning dialog minus "flat image", duplicate,
+  delete with usage list); puppet studio shell (own zundo store, autosave + thumbnail, undo/redo, motions list with
+  add/rename/delete, empty pins list, colour palette, light/dark checkerboard); toolbar Characters popover;
+  Inspector `PuppetLayerSection` (motion select, colour overrides + reset, Edit in studio, Detach / Re-link) and
+  "Open in puppet studio" on SVG and shape layers. 16 new tests (292 total).
+- Decisions while building:
+  - `version` is a revision stamp changed on every studio edit (`max(now, prev+1)`); instances refresh when it
+    **differs**, not only when larger, so undoing in the studio propagates as well.
+  - Converting keeps the layer's **id** (selection and timeline rows stay stable) and its layer animations.
+  - Library thumbnails render through the poster renderer (`previewInstance`) so they match instances exactly.
+  - Studio/library/menu backdrops are a light checkerboard by default — black line art was invisible on dark.
+- **Pre-existing bug fixed:** the poster undo history was never cleared when opening another poster, so ⌘Z right
+  after opening one could restore the *previous* poster's doc, which autosave would then write back to that poster's
+  file. `loadDoc`/`newDoc`/`closeDoc` now clear history (tests in `src/store/editor.test.ts`).
+- Verified in the app (on a copy of Poster 5 and a scratch poster, both deleted afterwards): "Open in puppet studio"
+  on the taco → poster renders **pixel-identical** (hashes at t=0 and 1.3 equal the pre-conversion baseline); placed
+  in a second poster via the toolbar; rename + recolour + new "Dance" motion in the studio reached the poster on return
+  and the other poster on open, without adding undo steps; detached instance kept its old colour while the linked one
+  updated; delete warned "Used in 2 posters" and both posters still render (now detached); new character from
+  `08-unsupported.svg` shows the warnings in dialog and studio. Saved posters: 37/40 renders identical to Phase 0;
+  the 3 differences are Poster 5 at t>0, which the user edited after Phase 0 (a sway loop with offset ½).
+
 ## 9. Progress
 
 - [x] Phase 0 — Groundwork + phase offset (done; awaiting user review)
-- [ ] Phase 1 — Library, studio shell, linked instances
+- [x] Phase 1 — Library, studio shell, linked instances (done; awaiting user review)
 - [ ] Phase 2 — Silhouette + mesh
 - [ ] Phase 3 — Solver, binding, posing
 - [ ] Phase 4 — Motions, pin animation, chains

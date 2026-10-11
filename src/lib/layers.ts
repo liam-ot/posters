@@ -8,6 +8,8 @@ import type {
   ShapeKind,
 } from '../types/poster'
 import type { SvgImport } from '../svg/parse'
+import type { PuppetAsset } from '../puppet/types'
+import { placeInstance } from '../puppet/convert'
 import { defaultParams } from '../generators/config'
 import { SHAPES, defaultShapeParams } from '../shapes/library'
 import { measureTextNatural } from '../canvas/textMetrics'
@@ -46,6 +48,7 @@ interface CreateOpts {
   src?: string
   naturalWidth?: number
   naturalHeight?: number
+  asset?: PuppetAsset
 }
 
 /** Build a new layer of the given type, centered on the artboard. */
@@ -184,6 +187,8 @@ export function createLayer(
         importWarnings: svg.warnings,
       }
     }
+    case 'puppet':
+      return placeInstance(opts.asset!, artboard, base.id)
     case 'generator': {
       const width = artboard.width
       const height = artboard.height

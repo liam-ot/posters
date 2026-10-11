@@ -109,7 +109,7 @@ export function LayerNode({
       // Vector layers: the layer box. Their geometry can change every frame (wobble)
       // and the box is what the Inspector's W/H describe, so measuring the ink would jitter.
       const l = layerRef.current
-      if (l.type === 'shape' || l.type === 'svg') return { x: 0, y: 0, width: l.width, height: l.height }
+      if (isPathLayer(l)) return { x: 0, y: 0, width: l.width, height: l.height }
       let minX = Infinity
       let minY = Infinity
       let maxX = -Infinity
@@ -180,6 +180,7 @@ export function LayerNode({
         return <GeneratorContent layer={layer as GeneratorLayer} />
       case 'shape':
       case 'svg':
+      case 'puppet':
         return <PathsContent layer={layer} frames={frame?.paths} />
     }
   }

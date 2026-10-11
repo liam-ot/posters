@@ -1,8 +1,7 @@
 import { memo, useMemo } from 'react'
 import { Path, Rect } from 'react-konva'
-import type { ShapeLayer, SvgLayer } from '../types/poster'
 import type { PathFrame } from '../animation/types'
-import { pathNodeConfigs } from '../render/paths'
+import { pathNodeConfigs, type PathLayer } from '../render/paths'
 import { getPathInfos } from '../render/pathInfo'
 
 /**
@@ -20,7 +19,7 @@ export const PathsContent = memo(function PathsContent({
   layer,
   frames,
 }: {
-  layer: ShapeLayer | SvgLayer
+  layer: PathLayer
   frames?: PathFrame[]
 }) {
   const paths = useMemo(

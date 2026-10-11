@@ -19,6 +19,7 @@ import { ParamControls } from './ParamControls'
 import { AnimationSection } from './AnimationSection'
 import { ShapeSection } from './ShapeSection'
 import { SvgSection } from './SvgSection'
+import { MakeCharacterSection, PuppetLayerSection } from './PuppetLayerSection'
 
 const BLEND_MODES: { value: BlendMode; label: string }[] = [
   { value: 'source-over', label: 'Normal' },
@@ -372,9 +373,21 @@ function TypeSection({
     case 'generator':
       return <GeneratorSection layer={layer} patch={patch} />
     case 'shape':
-      return <ShapeSection layer={layer} patch={patch} />
+      return (
+        <>
+          <ShapeSection layer={layer} patch={patch} />
+          <MakeCharacterSection layer={layer} />
+        </>
+      )
     case 'svg':
-      return <SvgSection layer={layer} patch={patch} />
+      return (
+        <>
+          <SvgSection layer={layer} patch={patch} />
+          <MakeCharacterSection layer={layer} />
+        </>
+      )
+    case 'puppet':
+      return <PuppetLayerSection layer={layer} patch={patch} />
     default:
       return null
   }

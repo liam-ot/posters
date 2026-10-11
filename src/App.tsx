@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Editor } from './ui/Editor'
 import { Gallery } from './ui/Gallery'
+import { Studio } from './studio/Studio'
 import { useUI } from './store/ui'
 import { useFonts } from './store/fonts'
 import { preloadStandardFonts } from './fonts/standard'
@@ -16,5 +17,7 @@ export default function App() {
     loadCustom()
   }, [loadCustom, bumpVersion])
 
-  return view === 'editor' ? <Editor /> : <Gallery />
+  if (view === 'editor') return <Editor />
+  if (view === 'studio') return <Studio />
+  return <Gallery />
 }

@@ -29,6 +29,8 @@ interface EditorState {
   ) => string | undefined
   addLayerObject: (layer: Layer) => void
   updateLayer: (id: string, patch: Partial<Layer>) => void
+  /** Swap a layer for a different object in place (e.g. an SVG layer → a character instance). */
+  replaceLayer: (id: string, layer: Layer) => void
   updateSelected: (patch: Partial<Layer>) => void
   removeLayer: (id: string) => void
   removeSelected: () => void
@@ -59,9 +61,20 @@ export const useEditor = create<EditorState>()(
       doc: null,
       selectedIds: [],
 
-      loadDoc: (doc) => set({ doc: normalizeDoc(doc), selectedIds: [] }),
-      newDoc: (name) => set({ doc: createDefaultDoc(name), selectedIds: [] }),
-      closeDoc: () => set({ doc: null, selectedIds: [] }),
+      // Each opened poster starts a fresh undo history: undoing past the open
+      // would otherwise bring back the previous poster's doc (and autosave it).
+      loadDoc: (doc) => {
+        set({ doc: normalizeDoc(doc), selectedIds: [] })
+        useEditor.temporal.getState().clear()
+      },
+      newDoc: (name) => {
+        set({ doc: createDefaultDoc(name), selectedIds: [] })
+        useEditor.temporal.getState().clear()
+      },
+      closeDoc: () => {
+        set({ doc: null, selectedIds: [] })
+        useEditor.temporal.getState().clear()
+      },
 
       setSelection: (ids) => set({ selectedIds: ids }),
       toggleSelection: (id) =>
@@ -97,6 +110,14 @@ export const useEditor = create<EditorState>()(
           doc: mutate(s.doc, (d) => {
             const idx = d.layers.findIndex((l) => l.id === id)
             if (idx >= 0) Object.assign(d.layers[idx], patch)
+          }),
+        })),
+
+      replaceLayer: (id, layer) =>
+        set((s) => ({
+          doc: mutate(s.doc, (d) => {
+            const idx = d.layers.findIndex((l) => l.id === id)
+            if (idx >= 0) d.layers[idx] = layer
           }),
         })),
 
