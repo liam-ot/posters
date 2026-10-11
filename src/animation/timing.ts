@@ -27,6 +27,11 @@ export function periodSeconds(a: LayerAnimation, ctx: EvalContext): number {
   return a.periodUnit === 'beat' ? period * beat : period * beat * ctx.beatsPerBar
 }
 
+/** Time as a loop sees it: shifted by its phase offset (a fraction of the period). */
+export function loopTime(a: LayerAnimation, t: number, period: number): number {
+  return t + (a.phaseOffset ?? 0) * period
+}
+
 /**
  * Position in a cycle, 0..1. Tolerates float error so a time that is a whole
  * number of periods (e.g. the timeline end) lands exactly on 0 — that's what

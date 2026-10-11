@@ -12,7 +12,7 @@ import { useEditor } from '../store/editor'
 import { EASING_OPTIONS } from '../animation/easing'
 import { PRESETS, createAnimation, presetsFor } from '../animation/presets'
 import { contextFor, loopsSeamlessly, periodSeconds } from '../animation/timing'
-import { Field, NumberInput, PanelSection, Select, Toggle } from './controls'
+import { Field, NumberInput, PanelSection, Select, Slider, Toggle } from './controls'
 import { ParamControls } from './ParamControls'
 
 const GROUPS: { phase: AnimationPhase; title: string; hint: string }[] = [
@@ -138,6 +138,26 @@ function AnimationRow({
                     onChange={(v) => onChange({ periodUnit: v })}
                   />
                 </div>
+              </Field>
+              <Field label="Offset">
+                <Slider
+                  value={anim.phaseOffset ?? 0}
+                  min={0}
+                  max={0.95}
+                  step={0.05}
+                  onChange={(v) => onChange({ phaseOffset: v || undefined })}
+                />
+                <button
+                  title="Half a period later — e.g. the off-beat, for left/right alternation"
+                  onClick={() => onChange({ phaseOffset: anim.phaseOffset === 0.5 ? undefined : 0.5 })}
+                  className={`h-6 shrink-0 rounded-md px-1.5 text-[11px] ${
+                    anim.phaseOffset === 0.5
+                      ? 'bg-[var(--color-accent)] text-white'
+                      : 'text-[var(--color-muted)] hover:bg-[var(--color-panel-2)] hover:text-[var(--color-text)]'
+                  }`}
+                >
+                  ½
+                </button>
               </Field>
               {!ctx.bpm && (
                 <p className="pb-1 text-[11px] text-[var(--color-muted)]">

@@ -5,6 +5,7 @@ import { PRESETS } from './presets'
 import {
   animationWindow,
   cycleOf,
+  loopTime,
   periodSeconds,
   type EvalContext,
 } from './timing'
@@ -51,7 +52,9 @@ export function evaluateLayer(
     if (a.phase === 'loop') {
       if (ctx.rest) continue
       const period = periodSeconds(a, ctx)
-      def.apply(frame, { p: 1, cycle: cycleOf(t, period), t, period, params, layer, seed, u: 1, ease: easeFn, infos })
+      // A constant time shift, so loops that divide the timeline stay seamless.
+      const tl = loopTime(a, t, period)
+      def.apply(frame, { p: 1, cycle: cycleOf(tl, period), t: tl, period, params, layer, seed, u: 1, ease: easeFn, infos })
     } else {
       const u = progress(a, t, ctx)
       def.apply(frame, { p: ease(a.easing, u), cycle: 0, t, period: 1, params, layer, seed, u, ease: easeFn, infos })

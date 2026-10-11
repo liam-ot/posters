@@ -392,9 +392,14 @@ function LoopBar({
   onPointerDown: (e: React.PointerEvent) => void
 }) {
   const period = periodSeconds(anim, ctx)
-  const count = Math.floor(ctx.duration / period + 1e-6)
+  // Cycle starts, shifted by the phase offset (a cycle starts where loop time is a whole period).
+  const first = (1 - (anim.phaseOffset ?? 0)) % 1
+  const count = Math.floor(ctx.duration / period - first + 1e-6) + 1
   // Period ticks only while they're far enough apart to see.
-  const ticks = period * pps >= 4 ? Array.from({ length: count }, (_, k) => k + 1) : []
+  const ticks =
+    period * pps >= 4
+      ? Array.from({ length: count }, (_, k) => k + first).filter((k) => k > 1e-6)
+      : []
   return (
     <div
       title={`${PRESETS[anim.preset]?.label ?? anim.preset} loop, every ${fmt(period)}`}

@@ -1,7 +1,7 @@
 # Architecture Decision Records
 
 Decisions made while scoping and building the SVG + animation extension
-(see [docs/plans/svg-animation.md](../plans/svg-animation.md)). One decision per file,
+(see [docs/plans/svg-animation.md](../plans/svg-animation.md) and [docs/plans/puppet-pins.md](../plans/puppet-pins.md)). One decision per file,
 numbered in the order they were made. Status is one of **Proposed**, **Accepted**,
 **Superseded by ADR-NNNN**.
 
@@ -20,3 +20,5 @@ When a decision changes, don't edit the old ADR: add a new one and mark the old 
 | [0009](0009-schema-compatibility.md) | Schema compatibility: optional fields + `normalizeDoc` | Accepted |
 | [0010](0010-testing-strategy.md) | Testing strategy: unit-test pure modules with Vitest | Accepted |
 | [0011](0011-path-level-animation-and-dash-reveal.md) | Path-level animation: per-path frames and revealing dashed strokes | Accepted |
+| [0012](0012-puppet-deformation.md) | Puppet deformation: mesh-based ARAP with pins | Accepted |
+| [0013](0013-character-library-linked-instances.md) | Character library: linked instances with snapshots | Accepted |

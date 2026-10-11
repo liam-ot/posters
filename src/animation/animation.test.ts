@@ -207,6 +207,45 @@ describe('seamless loops (adr-0004)', () => {
     expect(evaluateLayer(l, 5, c)).toEqual(evaluateLayer(l, 0, c))
   })
 
+  it('phase offset 0 changes nothing', () => {
+    const plain = layer([anim('pulse', 'loop', { period: 1 })])
+    const zero = layer([anim('pulse', 'loop', { period: 1, phaseOffset: 0 })])
+    for (const t of [0, 0.2, 0.7, 3.3]) expect(evaluateLayer(zero, t, ctx)).toEqual(evaluateLayer(plain, t, ctx))
+  })
+
+  it.each(loops.map((d) => d.id))('%s: offset ½ = the same loop half a period later', (id) => {
+    const period = 1
+    const plain = layer([anim(id, 'loop', { period })])
+    const half = layer([anim(id, 'loop', { period, phaseOffset: 0.5 })])
+    for (const t of [0, 0.3, 1.1, 2.6]) {
+      const a = evaluateLayer(half, t, ctx)
+      const b = evaluateLayer(plain, t + 0.5, ctx)
+      for (const k of ['dx', 'dy', 'rotation', 'scaleX', 'scaleY', 'opacity'] as const) {
+        expect(a[k]).toBeCloseTo(b[k], 9)
+      }
+    }
+  })
+
+  it('stays seamless with an offset', () => {
+    for (const d of loops) {
+      const l = layer([anim(d.id, 'loop', { period: 2.5, phaseOffset: 0.35 })])
+      const a = evaluateLayer(l, 0, ctx)
+      const b = evaluateLayer(l, ctx.duration, ctx)
+      for (const k of ['dx', 'dy', 'rotation', 'scaleX', 'scaleY', 'opacity'] as const) {
+        expect(b[k]).toBeCloseTo(a[k], 6)
+      }
+    }
+  })
+
+  it('alternates two pulses on the beat with offsets 0 and ½', () => {
+    const c = contextFor({ ...timeline, bpm: 120 }, false) // 0.5s beats
+    const pulse = (phaseOffset?: number) =>
+      layer([anim('pulse', 'loop', { period: 2, periodUnit: 'beat', phaseOffset, params: { amount: 0.2, shape: 'beat' } })])
+    // On the downbeat the first one hits; one beat later the second one does.
+    expect(evaluateLayer(pulse(), 0, c).scaleX).toBeGreaterThan(evaluateLayer(pulse(0.5), 0, c).scaleX)
+    expect(evaluateLayer(pulse(0.5), 0.5, c).scaleX).toBeGreaterThan(evaluateLayer(pulse(), 0.5, c).scaleX)
+  })
+
   it('looping noise returns to its start after one cycle', () => {
     for (const ch of [0, 1, 2]) {
       expect(loopNoise(42, ch, 1, 3)).toBeCloseTo(loopNoise(42, ch, 0, 3), 9)

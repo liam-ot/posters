@@ -61,6 +61,8 @@ export interface LayerAnimation {
   /** loop: length of one cycle, in `periodUnit`. */
   period?: number
   periodUnit?: TimeUnit
+  /** loop: shift by this fraction of a period (0..1), e.g. 0.5 = the off-beat. */
+  phaseOffset?: number
   /** in/out only; loops ignore it. */
   easing: EasingName
   params: Record<string, number | string | boolean>

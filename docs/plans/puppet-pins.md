@@ -440,11 +440,21 @@ poster and every Phase-4 path preset still render identically.
 
 ## 8. Implementation notes
 
-_(add per phase)_
+**Phase 0**
+- Built: `phaseOffset` on every loop (`loopTime()` in `timing.ts` shifts time by `offset·period` before the cycle
+  and the preset see it, so noise/boil presets shift too and loops stay seamless); Inspector "Offset" slider (0–0.95)
+  with a "½" toggle; the timeline panel's loop ticks follow the offset. Character/puppet types in
+  `src/puppet/types.ts`; `normalizeAsset` (+ tests); ADR-0012, ADR-0013. 15 new tests (276 total).
+- Deviation: `PuppetLayer` is defined but **not yet in the `Layer` union** — adding it forces every
+  `switch (layer.type)` to handle it, which is Phase 1 work. It extends `Omit<BaseLayer, 'type'>` until then.
+  `normalizeDoc` handling for `puppet` layers moves to Phase 1 with it.
+- Verified: all 5 saved posters hash identically to the previous commit (4 times × animated/rest = 40 renders);
+  in the app, two beat pulses with offsets 0 / ½ at 120 BPM alternate (rect peaks at 0s/1s, ellipse at 0.5s,
+  measured from exported frames) and frame 4s == frame 0s.
 
 ## 9. Progress
 
-- [ ] Phase 0 — Groundwork + phase offset
+- [x] Phase 0 — Groundwork + phase offset (done; awaiting user review)
 - [ ] Phase 1 — Library, studio shell, linked instances
 - [ ] Phase 2 — Silhouette + mesh
 - [ ] Phase 3 — Solver, binding, posing
