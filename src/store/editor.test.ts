@@ -40,3 +40,65 @@ describe('removeAnimation', () => {
     expect(useEditor.temporal.getState().pastStates.length).toBe(steps + 1)
   })
 })
+
+describe('multi-layer duplicate, copy/paste and move', () => {
+  const setup = () => {
+    useEditor.getState().loadDoc(createDefaultDoc('M'))
+    const a = useEditor.getState().addLayer('rect')!
+    const b = useEditor.getState().addLayer('ellipse')!
+    const c = useEditor.getState().addLayer('rect')!
+    useEditor.getState().setSelection([a, c])
+    return { a, b, c }
+  }
+  const ids = () => useEditor.getState().doc!.layers.map((l) => l.id)
+  const layer = (id: string) => useEditor.getState().doc!.layers.find((l) => l.id === id)!
+
+  it('⌘D copies every selected layer above its own, in one undo step', () => {
+    const { a, b, c } = setup()
+    const steps = useEditor.temporal.getState().pastStates.length
+    useEditor.getState().duplicateLayers([a, c])
+    const [ca, cc] = useEditor.getState().selectedIds
+    expect(ids()).toEqual([a, ca, b, c, cc])
+    expect(layer(ca).x).toBe(layer(a).x + 24)
+    expect(useEditor.temporal.getState().pastStates.length).toBe(steps + 1)
+  })
+
+  it('Alt-drag copies stay in place below and the originals stay selected', () => {
+    const { a, b, c } = setup()
+    useEditor.getState().duplicateLayers([a, c], { inPlace: true })
+    const all = ids()
+    expect(all).toHaveLength(5)
+    expect([all[1], all[2], all[4]]).toEqual([a, b, c])
+    expect(layer(all[0]).x).toBe(layer(a).x)
+    expect(useEditor.getState().selectedIds).toEqual([a, c])
+  })
+
+  it('pastes copies on top, stepping further each paste, and selects them', () => {
+    const { a, b, c } = setup()
+    useEditor.getState().copySelected()
+    useEditor.getState().paste()
+    useEditor.getState().paste()
+    const all = ids()
+    expect(all.slice(0, 3)).toEqual([a, b, c])
+    expect(all).toHaveLength(7)
+    expect(useEditor.getState().selectedIds).toEqual(all.slice(5))
+    expect(layer(all[5]).x).toBe(layer(a).x + 48)
+    expect(layer(all[6]).name).toBe(layer(c).name)
+  })
+
+  it('cut removes the layers and paste brings them back', () => {
+    const { b } = setup()
+    useEditor.getState().cutSelected()
+    expect(ids()).toEqual([b])
+    useEditor.getState().paste()
+    expect(ids()).toHaveLength(3)
+  })
+
+  it('moves several layers in one undo step', () => {
+    const { a, c } = setup()
+    const steps = useEditor.temporal.getState().pastStates.length
+    useEditor.getState().moveLayers({ [a]: { x: 1, y: 2 }, [c]: { x: 3, y: 4 } })
+    expect([layer(a).x, layer(c).y]).toEqual([1, 4])
+    expect(useEditor.temporal.getState().pastStates.length).toBe(steps + 1)
+  })
+})

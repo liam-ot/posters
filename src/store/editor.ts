@@ -38,12 +38,19 @@ interface EditorState {
   updateSelected: (patch: Partial<Layer>) => void
   removeLayer: (id: string) => void
   removeSelected: () => void
+  /** Move several layers in one undo step (multi-select drag, nudge). */
+  moveLayers: (positions: Record<string, { x: number; y: number }>) => void
   /**
-   * Copy a layer. Default: offset by 24 px above it and selected (⌘D). `inPlace`:
-   * the copy stays exactly where the layer is, just below it, and selection is kept
-   * — Alt-drag then moves the original away, leaving the copy behind.
+   * Copy layers. Default: each copy offset by 24 px just above its layer, and the
+   * copies selected (⌘D). `inPlace`: copies stay exactly where the layers are, just
+   * below them, and selection is kept — Alt-drag then moves the originals away,
+   * leaving the copies behind.
    */
-  duplicateLayer: (id: string, opts?: { inPlace?: boolean }) => void
+  duplicateLayers: (ids: string[], opts?: { inPlace?: boolean }) => void
+  /** ⌘C / ⌘X / ⌘V. The clipboard lives outside the doc, so it survives switching posters. */
+  copySelected: () => void
+  cutSelected: () => void
+  paste: () => void
   /** Place a library character; existing linked copies move to the same snapshot so all copies share it. */
   placeCharacter: (asset: PuppetAsset) => void
   reorderLayer: (id: string, toIndex: number) => void
@@ -53,6 +60,28 @@ interface EditorState {
   updateTimeline: (patch: Partial<TimelineConfig>) => void
   renameDoc: (name: string) => void
 }
+
+/**
+ * A fresh copy of a layer with a new id. A linked character copy shares its
+ * snapshot instead of deep-copying it.
+ */
+function cloneLayer(src: Layer, offset = 0, name = src.name): Layer {
+  const shared = src.type === 'puppet' && !src.detached ? src.snapshot : undefined
+  const body = shared ? { ...src, snapshot: undefined } : src
+  return {
+    ...structuredClone(body),
+    ...(shared ? { snapshot: shared } : {}),
+    id: nanoid(),
+    name,
+    x: src.x + offset,
+    y: src.y + offset,
+  } as Layer
+}
+
+const PASTE_OFFSET = 24
+// Copied layers (bottom to top) and how many times they've been pasted.
+let clipboard: Layer[] = []
+let pasteCount = 0
 
 /** Mutate the current doc immutably and stamp updatedAt. */
 function mutate(
@@ -166,29 +195,59 @@ export const useEditor = create<EditorState>()(
           selectedIds: [],
         })),
 
-      duplicateLayer: (id, opts) => {
+      moveLayers: (positions) =>
+        set((s) => ({
+          doc: mutate(s.doc, (d) => {
+            for (const l of d.layers) {
+              const p = positions[l.id]
+              if (p) Object.assign(l, p)
+            }
+          }),
+        })),
+
+      duplicateLayers: (ids, opts) => {
         const s = get()
-        if (!s.doc) return
-        const src = s.doc.layers.find((l) => l.id === id)
-        if (!src) return
+        if (!s.doc || ids.length === 0) return
         const inPlace = !!opts?.inPlace
-        // A linked character copy shares its snapshot instead of deep-copying it.
-        const shared = src.type === 'puppet' && !src.detached ? src.snapshot : undefined
-        const body = shared ? { ...src, snapshot: undefined } : src
-        const copy = {
-          ...structuredClone(body),
-          ...(shared ? { snapshot: shared } : {}),
-          id: nanoid(),
-          name: `${src.name} copy`,
-          x: src.x + (inPlace ? 0 : 24),
-          y: src.y + (inPlace ? 0 : 24),
-        } as Layer
+        const copies: string[] = []
         set({
           doc: mutate(s.doc, (d) => {
-            const idx = d.layers.findIndex((l) => l.id === id)
-            d.layers.splice(inPlace ? idx : idx + 1, 0, copy)
+            // Clone from the committed doc (not the draft), bottom to top.
+            for (const src of s.doc!.layers) {
+              if (!ids.includes(src.id)) continue
+              const copy = cloneLayer(src, inPlace ? 0 : PASTE_OFFSET, `${src.name} copy`)
+              const idx = d.layers.findIndex((l) => l.id === src.id)
+              d.layers.splice(inPlace ? idx : idx + 1, 0, copy)
+              copies.push(copy.id)
+            }
           }),
-          selectedIds: inPlace ? s.selectedIds : [copy.id],
+          selectedIds: inPlace ? s.selectedIds : copies,
+        })
+      },
+
+      copySelected: () => {
+        const { doc, selectedIds } = get()
+        if (!doc || selectedIds.length === 0) return
+        clipboard = doc.layers.filter((l) => selectedIds.includes(l.id)).map((l) => structuredClone(l))
+        pasteCount = 0
+      },
+
+      cutSelected: () => {
+        get().copySelected()
+        get().removeSelected()
+      },
+
+      // Pastes on top, each paste stepping a further 24 px so copies don't stack invisibly.
+      paste: () => {
+        const doc = get().doc
+        if (!doc || clipboard.length === 0) return
+        pasteCount++
+        const copies = clipboard.map((l) => cloneLayer(l, PASTE_OFFSET * pasteCount))
+        set({
+          doc: mutate(doc, (d) => {
+            d.layers.push(...copies)
+          }),
+          selectedIds: copies.map((l) => l.id),
         })
       },
 

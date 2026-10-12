@@ -10,7 +10,7 @@ function isTyping() {
   )
 }
 
-/** Global editor keyboard shortcuts (undo/redo, duplicate, nudge, tools). */
+/** Global editor keyboard shortcuts (undo/redo, duplicate, copy/paste, nudge, tools). */
 export function useShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -32,8 +32,24 @@ export function useShortcuts() {
       }
       if (meta && e.key.toLowerCase() === 'd') {
         e.preventDefault()
-        const id = store.selectedIds[0]
-        if (id) store.duplicateLayer(id)
+        store.duplicateLayers(store.selectedIds)
+        return
+      }
+      if (meta && e.key.toLowerCase() === 'c' && store.selectedIds.length > 0) {
+        // Leave ⌘C alone when the user has highlighted page text to copy.
+        if (window.getSelection()?.toString()) return
+        e.preventDefault()
+        store.copySelected()
+        return
+      }
+      if (meta && e.key.toLowerCase() === 'x' && store.selectedIds.length > 0) {
+        e.preventDefault()
+        store.cutSelected()
+        return
+      }
+      if (meta && e.key.toLowerCase() === 'v') {
+        e.preventDefault()
+        store.paste()
         return
       }
       if (e.key === 'Escape') {
@@ -58,10 +74,11 @@ export function useShortcuts() {
         const step = e.shiftKey ? 10 : 1
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
         const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
-        for (const id of store.selectedIds) {
-          const l = store.doc.layers.find((x) => x.id === id)
-          if (l) store.updateLayer(id, { x: l.x + dx, y: l.y + dy })
+        const positions: Record<string, { x: number; y: number }> = {}
+        for (const l of store.doc.layers) {
+          if (store.selectedIds.includes(l.id)) positions[l.id] = { x: l.x + dx, y: l.y + dy }
         }
+        store.moveLayers(positions)
       }
     }
     window.addEventListener('keydown', onKey)

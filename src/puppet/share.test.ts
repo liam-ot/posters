@@ -106,8 +106,8 @@ describe('duplicating', () => {
   it('⌘D and Alt-drag share the snapshot; Alt-drag leaves the copy in place below', () => {
     const s = useEditor.getState()
     s.loadDoc(doc([copy('a')]))
-    s.duplicateLayer('a')
-    s.duplicateLayer('a', { inPlace: true })
+    s.duplicateLayers(['a'])
+    s.duplicateLayers(['a'], { inPlace: true })
     const layers = useEditor.getState().doc!.layers as PuppetLayer[]
     expect(layers).toHaveLength(3)
     expect(new Set(layers.map((l) => l.snapshot)).size).toBe(1)

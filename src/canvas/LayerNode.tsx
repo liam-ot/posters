@@ -29,7 +29,10 @@ interface Props {
   layer: Layer
   isSelected?: boolean
   editing?: boolean
+  /** Pointer down: select (shift = add/remove). */
   onSelect: (id: string, additive: boolean) => void
+  /** Pointer up without dragging. */
+  onClick?: (id: string, additive: boolean) => void
   onChange: (id: string, patch: Partial<Layer>) => void
   onStartEdit?: (id: string) => void
 }
@@ -73,6 +76,7 @@ export function LayerNode({
   isSelected,
   editing,
   onSelect,
+  onClick,
   onChange,
   onStartEdit,
 }: Props) {
@@ -196,23 +200,13 @@ export function LayerNode({
       listening={!layer.locked && layer.visible && layer.opacity > 0}
       onMouseDown={handleSelect}
       onTap={handleSelect}
+      onClick={(e) => onClick?.(layer.id, e.evt.shiftKey)}
       onDblClick={() => {
         if (layer.type === 'text') onStartEdit?.(layer.id)
       }}
       onDblTap={() => {
         if (layer.type === 'text') onStartEdit?.(layer.id)
       }}
-      onDragStart={(e) => {
-        // Alt/⌥-drag drags out a copy (as in Figma): one stays put, this one moves.
-        const evt = e.evt as MouseEvent | undefined
-        if (evt?.altKey) useEditor.getState().duplicateLayer(layer.id, { inPlace: true })
-      }}
-      onDragEnd={(e) =>
-        onChange(layer.id, {
-          x: Math.round(e.target.x()),
-          y: Math.round(e.target.y()),
-        })
-      }
       onTransform={(e) => {
         // Text resizes by width only — convert the live scale into a wrapping
         // width so the text reflows during the drag (not just on release).

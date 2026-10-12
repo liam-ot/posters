@@ -202,23 +202,70 @@ export function CanvasStage() {
     }
   }
 
+  // Pressing on a layer that's already part of a multi-selection keeps the
+  // selection so the whole group can be dragged; a click without a drag then
+  // narrows it to that layer (as in Figma).
+  const pendingNarrow = useRef<string | null>(null)
   const onSelectLayer = (id: string, additive: boolean) => {
+    pendingNarrow.current = null
     if (additive) toggleSelection(id)
+    else if (selectedIds.length > 1 && selectedIds.includes(id)) pendingNarrow.current = id
     else setSelection([id])
   }
+  const onClickLayer = (id: string, additive: boolean) => {
+    if (!additive && pendingNarrow.current === id) setSelection([id])
+    pendingNarrow.current = null
+  }
 
-  // Figma-style soft snapping to the artboard's center lines. Runs on the
-  // bubbled dragmove of a layer node. Snapping is per-frame (Konva recomputes
-  // the drag position from the pointer each frame), so dragging past the
-  // threshold releases the snap automatically.
+  // Dragging one selected layer moves every (unlocked) selected layer. Start
+  // positions are taken at drag start; the grabbed node's offset is applied to the rest.
+  const dragRef = useRef<Map<Konva.Node, { x: number; y: number }> | null>(null)
+  const isLayerDrag = (node: Konva.Node) => node !== node.getStage() && node.hasName('layer')
+  const onNodeDragStart = (e: Konva.KonvaEventObject<DragEvent>) => {
+    const stage = stageRef.current
+    if (!stage || !isLayerDrag(e.target)) return
+    const { doc, selectedIds, duplicateLayers } = useEditor.getState()
+    const ids = (doc?.layers ?? [])
+      .filter((l) => selectedIds.includes(l.id) && !l.locked)
+      .map((l) => l.id)
+    // Alt/⌥-drag drags out copies (as in Figma): the copies stay put, the originals move.
+    if ((e.evt as MouseEvent | undefined)?.altKey) duplicateLayers(ids, { inPlace: true })
+    const starts = new Map<Konva.Node, { x: number; y: number }>()
+    for (const id of ids) {
+      const node = stage.findOne('#' + id)
+      if (node) starts.set(node, node.position())
+    }
+    starts.set(e.target, e.target.position())
+    dragRef.current = starts
+  }
+
+  // Figma-style soft snapping of the dragged selection's center to the
+  // artboard's center lines. Runs on the bubbled dragmove of a layer node.
+  // Snapping is per-frame (Konva recomputes the drag position from the pointer
+  // each frame), so dragging past the threshold releases the snap automatically.
   const SNAP_PX = 25
   const onNodeDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
     const node = e.target
     const content = contentRef.current
-    if (node === node.getStage() || !content) return // stage pan, ignore
-    const box = node.getClientRect({ relativeTo: content })
-    const cx = box.x + box.width / 2
-    const cy = box.y + box.height / 2
+    const starts = dragRef.current
+    if (!isLayerDrag(node) || !content || !starts) return
+    const s0 = starts.get(node)!
+    const ox = node.x() - s0.x
+    const oy = node.y() - s0.y
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+    for (const [n, s] of starts) {
+      if (n !== node) n.position({ x: s.x + ox, y: s.y + oy })
+      const r = n.getClientRect({ relativeTo: content })
+      minX = Math.min(minX, r.x)
+      minY = Math.min(minY, r.y)
+      maxX = Math.max(maxX, r.x + r.width)
+      maxY = Math.max(maxY, r.y + r.height)
+    }
+    const cx = (minX + maxX) / 2
+    const cy = (minY + maxY) / 2
     const threshold = SNAP_PX / view.scale
     let dx = 0
     let dy = 0
@@ -226,8 +273,19 @@ export function CanvasStage() {
     const h = Math.abs(cy - H / 2) <= threshold
     if (v) dx = W / 2 - cx
     if (h) dy = H / 2 - cy
-    if (dx || dy) node.position({ x: node.x() + dx, y: node.y() + dy })
+    if (dx || dy) for (const n of starts.keys()) n.position({ x: n.x() + dx, y: n.y() + dy })
     setSnap((p) => (p.v === v && p.h === h ? p : { v, h }))
+  }
+
+  // One undo step for the whole group.
+  const onNodeDragEnd = () => {
+    const starts = dragRef.current
+    dragRef.current = null
+    setSnap({ v: false, h: false })
+    if (!starts) return
+    const positions: Record<string, { x: number; y: number }> = {}
+    for (const n of starts.keys()) positions[n.id()] = { x: Math.round(n.x()), y: Math.round(n.y()) }
+    useEditor.getState().moveLayers(positions)
   }
 
   return (
@@ -248,12 +306,13 @@ export function CanvasStage() {
           draggable={space}
           onWheel={onWheel}
           onMouseDown={onStageMouseDown}
+          onDragStart={onNodeDragStart}
           onDragMove={onNodeDragMove}
           onDragEnd={(e) => {
             if (e.target === e.target.getStage()) {
               setView((v) => ({ ...v, x: e.target.x(), y: e.target.y() }))
-            } else {
-              setSnap({ v: false, h: false })
+            } else if (isLayerDrag(e.target)) {
+              onNodeDragEnd()
             }
           }}
         >
@@ -283,6 +342,7 @@ export function CanvasStage() {
                   isSelected={selectedIds.includes(layer.id)}
                   editing={editingId === layer.id}
                   onSelect={onSelectLayer}
+                  onClick={onClickLayer}
                   onChange={updateLayer}
                   onStartEdit={(id) => {
                     setSelection([id])
