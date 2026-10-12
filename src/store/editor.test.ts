@@ -25,3 +25,18 @@ describe('editor undo history', () => {
     expect(useEditor.temporal.getState().pastStates.length).toBe(steps)
   })
 })
+
+describe('removeAnimation', () => {
+  it('removes just that animation and keeps the layer (one undo step)', () => {
+    useEditor.getState().loadDoc(createDefaultDoc('D'))
+    const id = useEditor.getState().addLayer('rect')!
+    const anim = (a: string) => ({ id: a, preset: 'pulse' as const, phase: 'loop' as const, enabled: true, easing: 'linear' as const, params: {} })
+    useEditor.getState().updateLayer(id, { animations: [anim('a'), anim('b')] })
+    const steps = useEditor.temporal.getState().pastStates.length
+    useEditor.getState().removeAnimation(id, 'a')
+    const layer = useEditor.getState().doc!.layers.find((l) => l.id === id)
+    expect(layer).toBeDefined()
+    expect(layer!.animations!.map((a) => a.id)).toEqual(['b'])
+    expect(useEditor.temporal.getState().pastStates.length).toBe(steps + 1)
+  })
+})

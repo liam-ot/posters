@@ -6,6 +6,7 @@ import { useUI } from '../store/ui'
 import { parseColor } from '../svg/color'
 import { useFonts } from '../store/fonts'
 import { LayerNode } from './LayerNode'
+import { LayerBoundary } from './LayerBoundary'
 import { TextEditorOverlay } from './TextEditorOverlay'
 import { useContainerSize } from './useContainerSize'
 import { setStage } from './stageHandle'
@@ -66,6 +67,17 @@ export function CanvasStage() {
       : undefined
 
   const bgAlpha = parseColor(doc?.artboard.background ?? '')?.a ?? 1
+  // Layers that crashed while drawing (skipped, see LayerBoundary).
+  const [broken, setBroken] = useState<Set<string>>(new Set())
+  const onLayerError = useCallback((id: string, error: Error | null) => {
+    setBroken((prev) => {
+      const next = new Set(prev)
+      if (error) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }, [])
+  const brokenNames = (doc?.layers ?? []).filter((l) => broken.has(l.id)).map((l) => l.name)
   const W = doc?.artboard.width ?? 0
   const H = doc?.artboard.height ?? 0
 
@@ -129,7 +141,14 @@ export function CanvasStage() {
         (e.key === 'Delete' || e.key === 'Backspace') &&
         !isTyping()
       ) {
-        removeSelected()
+        // A selected timeline bar means "delete this animation", not the layer.
+        const anim = useUI.getState().selectedAnim
+        if (anim) {
+          useEditor.getState().removeAnimation(anim.layerId, anim.animId)
+          useUI.getState().setSelectedAnim(null)
+        } else {
+          removeSelected()
+        }
       }
     }
     const up = (e: KeyboardEvent) => {
@@ -258,8 +277,8 @@ export function CanvasStage() {
             {/* Content, clipped to the artboard frame */}
             <Group ref={contentRef} clipX={0} clipY={0} clipWidth={W} clipHeight={H}>
               {doc.layers.map((layer) => (
+                <LayerBoundary key={layer.id} layerId={layer.id} resetOn={layer} onError={onLayerError}>
                 <LayerNode
-                  key={layer.id}
                   layer={layer}
                   isSelected={selectedIds.includes(layer.id)}
                   editing={editingId === layer.id}
@@ -270,6 +289,7 @@ export function CanvasStage() {
                     setEditingId(id)
                   }}
                 />
+                </LayerBoundary>
               ))}
             </Group>
             {/* Center-alignment snap guides */}
@@ -333,6 +353,13 @@ export function CanvasStage() {
           />
         )
       })()}
+
+      {brokenNames.length > 0 && (
+        <div className="absolute left-1/2 top-16 z-20 max-w-md -translate-x-1/2 rounded-lg border border-amber-500/40 bg-[var(--color-panel)] px-3 py-2 text-xs text-amber-300 shadow-lg">
+          Couldn’t draw {brokenNames.map((n) => `“${n}”`).join(', ')} — the rest of the poster is fine. Undo the last
+          change, or select the layer in the list and delete it.
+        </div>
+      )}
 
       {/* Zoom indicator */}
       <div className="pointer-events-none absolute bottom-3 right-3 rounded-md bg-[var(--color-panel)]/80 px-2 py-1 text-xs text-[var(--color-muted)]">

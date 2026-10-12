@@ -25,6 +25,9 @@ interface UIState {
   // Animation bar folded into a small button in the canvas corner (remembered per browser).
   barCollapsed: boolean
   setBarCollapsed: (v: boolean) => void
+  // The animation whose bar is selected in the timeline panel: Delete removes it, not its layer.
+  selectedAnim: { layerId: string; animId: string } | null
+  setSelectedAnim: (v: { layerId: string; animId: string } | null) => void
 }
 
 const BAR_KEY = 'poster-studio:bar-collapsed'
@@ -60,4 +63,6 @@ export const useUI = create<UIState>((set) => ({
     }
     set({ barCollapsed })
   },
+  selectedAnim: null,
+  setSelectedAnim: (selectedAnim) => set({ selectedAnim }),
 }))

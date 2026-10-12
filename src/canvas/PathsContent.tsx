@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react'
 import { Rect } from 'react-konva'
-import { PathNodesView } from './PathNodeView'
+import { usePathElements } from './PathNodeView'
 import type { PathFrame } from '../animation/types'
 import { pathNodeConfigs, type PathLayer } from '../render/paths'
 import { getPathInfos } from '../render/pathInfo'
@@ -31,10 +31,11 @@ export const PathsContent = memo(function PathsContent({
     () => pathNodeConfigs(layer, frames, frames ? getPathInfos(layer) : undefined, pins),
     [layer, frames, pins],
   )
+  const elements = usePathElements(paths)
   return (
     <>
       <Rect width={layer.width} height={layer.height} fill="rgba(0,0,0,0)" />
-      <PathNodesView nodes={paths} />
+      {elements}
     </>
   )
 })

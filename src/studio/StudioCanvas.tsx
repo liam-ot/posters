@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import type Konva from 'konva'
 import { Circle, Group, Layer, Line, Rect, Shape, Stage } from 'react-konva'
-import { PathNodesView } from '../canvas/PathNodeView'
+import { usePathElements } from '../canvas/PathNodeView'
 import { useStudio } from './store'
 import { isMeshCurrent } from '../puppet/build'
 import type { PuppetAsset, UV } from '../puppet/types'
@@ -66,6 +66,7 @@ export function StudioCanvas({ asset }: { asset: PuppetAsset }) {
     () => pathNodeConfigs(previewInstance(shown, motionId), undefined, [], animated),
     [shown, motionId, animated],
   )
+  const pathElements = usePathElements(paths, false)
   const mesh = asset.puppet.mesh
   const current = useMemo(() => isMeshCurrent(asset), [asset])
   const wireVerts = useMemo(
@@ -140,7 +141,7 @@ export function StudioCanvas({ asset }: { asset: PuppetAsset }) {
                 opacity={0.6}
                 listening={false}
               />
-              <PathNodesView nodes={paths} listening={false} />
+              {pathElements}
               {wireVerts && mesh && <MeshWire verts={wireVerts} tris={mesh.tris} stale={!current} />}
 
               {asset.puppet.pins.map((pin) => {

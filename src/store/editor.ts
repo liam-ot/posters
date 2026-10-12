@@ -31,6 +31,8 @@ interface EditorState {
   ) => string | undefined
   addLayerObject: (layer: Layer) => void
   updateLayer: (id: string, patch: Partial<Layer>) => void
+  /** Remove one animation from a layer (the layer itself stays). */
+  removeAnimation: (layerId: string, animId: string) => void
   /** Swap a layer for a different object in place (e.g. an SVG layer → a character instance). */
   replaceLayer: (id: string, layer: Layer) => void
   updateSelected: (patch: Partial<Layer>) => void
@@ -119,6 +121,14 @@ export const useEditor = create<EditorState>()(
           doc: mutate(s.doc, (d) => {
             const idx = d.layers.findIndex((l) => l.id === id)
             if (idx >= 0) Object.assign(d.layers[idx], patch)
+          }),
+        })),
+
+      removeAnimation: (layerId, animId) =>
+        set((s) => ({
+          doc: mutate(s.doc, (d) => {
+            const l = d.layers.find((x) => x.id === layerId)
+            if (l?.animations) l.animations = l.animations.filter((a) => a.id !== animId)
           }),
         })),
 

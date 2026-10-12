@@ -61,6 +61,16 @@ export function TimelinePanel() {
 
   const trackRef = useRef<HTMLDivElement>(null)
   const trackW = useWidth(trackRef)
+  // The animation whose bar was clicked; the canvas's Delete handler removes it
+  // instead of the whole layer (CanvasStage).
+  const selectedAnim = useUI((s) => s.selectedAnim)
+  const setSelectedAnim = useUI((s) => s.setSelectedAnim)
+  // Selecting something else (canvas, layers list, Escape) drops the bar selection.
+  useEffect(() => {
+    if (selectedAnim && !selectedIds.includes(selectedAnim.layerId)) setSelectedAnim(null)
+  }, [selectedIds, selectedAnim, setSelectedAnim])
+  // Closing the panel drops it too, so Delete goes back to deleting layers.
+  useEffect(() => () => useUI.getState().setSelectedAnim(null), [])
   // Mirrored in a ref so pointer handlers never read a stale drag from their closure.
   const [drag, setDragState] = useState<Drag | null>(null)
   const dragRef = useRef<Drag | null>(null)
@@ -93,6 +103,7 @@ export function TimelinePanel() {
   const beginDrag = (e: React.PointerEvent, layer: Layer, anim: LayerAnimation, mode: DragMode) => {
     e.stopPropagation()
     setSelection([layer.id])
+    setSelectedAnim({ layerId: layer.id, animId: anim.id })
     if (anim.phase === 'loop') return
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     setDrag({ layerId: layer.id, anim, mode, x0: e.clientX, patch: null })
@@ -147,6 +158,9 @@ export function TimelinePanel() {
           </>
         )}
         <div className="flex-1" />
+        {selectedAnim && (
+          <span className="text-[11px] text-[var(--color-muted)]">Delete removes the selected animation</span>
+        )}
         <button
           onClick={() => setOpen(false)}
           title="Close timeline"
@@ -195,7 +209,10 @@ export function TimelinePanel() {
             return (
               <div
                 key={layer.id}
-                onPointerDown={() => setSelection([layer.id])}
+                onPointerDown={() => {
+                  setSelection([layer.id])
+                  setSelectedAnim(null)
+                }}
                 className={`flex border-b border-[var(--color-border)]/60 ${
                   selected ? 'bg-[var(--color-accent)]/10' : ''
                 }`}
@@ -226,6 +243,7 @@ export function TimelinePanel() {
                             top={top}
                             pps={pps}
                             ctx={ctx}
+                            selected={selectedAnim?.animId === a.id}
                             onPointerDown={(e) => beginDrag(e, layer, a, 'move')}
                           />
                         ) : (
@@ -236,6 +254,7 @@ export function TimelinePanel() {
                             pps={pps}
                             ctx={ctx}
                             dragging={drag?.anim.id === a.id}
+                            selected={selectedAnim?.animId === a.id}
                             onPointerDown={(e, mode) => beginDrag(e, layer, a, mode)}
                             onPointerMove={moveDrag}
                             onPointerUp={endDrag}
@@ -427,6 +446,7 @@ function OnceBar({
   pps,
   ctx,
   dragging,
+  selected,
   onPointerDown,
   onPointerMove,
   onPointerUp,
@@ -436,6 +456,7 @@ function OnceBar({
   pps: number
   ctx: EvalContext
   dragging: boolean
+  selected: boolean
   onPointerDown: (e: React.PointerEvent, mode: DragMode) => void
   onPointerMove: (e: React.PointerEvent) => void
   onPointerUp: () => void
@@ -451,7 +472,7 @@ function OnceBar({
       style={{ top, height: LANE_H, left: start * pps, width: Math.max(4, (end - start) * pps) }}
       className={`absolute cursor-grab overflow-hidden rounded-md text-[10px] leading-5 text-white select-none ${
         anim.phase === 'in' ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-accent)]/70'
-      } ${anim.enabled ? '' : 'opacity-35'} ${dragging ? 'cursor-grabbing ring-1 ring-white/70' : ''}`}
+      } ${anim.enabled ? '' : 'opacity-35'} ${dragging ? 'cursor-grabbing ring-1 ring-white/70' : selected ? 'ring-2 ring-white' : ''}`}
       onPointerDown={(e) => onPointerDown(e, 'move')}
       {...handlers}
     >
@@ -470,12 +491,14 @@ function LoopBar({
   top,
   pps,
   ctx,
+  selected,
   onPointerDown,
 }: {
   anim: LayerAnimation
   top: number
   pps: number
   ctx: EvalContext
+  selected: boolean
   onPointerDown: (e: React.PointerEvent) => void
 }) {
   const period = periodSeconds(anim, ctx)
@@ -498,7 +521,7 @@ function LoopBar({
       }}
       className={`absolute inset-x-0 cursor-pointer overflow-hidden rounded-md border border-[var(--color-accent-2)]/40 text-[10px] leading-[18px] text-[var(--color-text)] select-none ${
         anim.enabled ? '' : 'opacity-35'
-      }`}
+      } ${selected ? 'ring-2 ring-white' : ''}`}
       onPointerDown={onPointerDown}
     >
       {ticks.map((k) => (
