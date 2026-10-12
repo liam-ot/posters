@@ -11,6 +11,7 @@ import type { SvgImport } from '../svg/parse'
 import type { PuppetAsset } from '../puppet/types'
 import { placeInstance } from '../puppet/convert'
 import { defaultParams } from '../generators/config'
+import { SHADERS } from '../generators/shaders'
 import { SHAPES, defaultShapeParams } from '../shapes/library'
 import { measureTextNatural } from '../canvas/textMetrics'
 
@@ -202,7 +203,8 @@ export function createLayer(
         width,
         height,
         generator,
-        animated: false,
+        // Shader generators are motion effects: they start playing.
+        animated: generator in SHADERS,
         seed: Math.floor(Math.random() * 100000),
         params: defaultParams(generator),
       }

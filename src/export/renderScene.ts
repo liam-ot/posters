@@ -42,6 +42,7 @@ function buildShape(
   images: Map<string, HTMLImageElement>,
   pathFrames?: PathFrame[],
   pins?: Map<string, UV>,
+  loopSec = 0,
 ): Konva.Shape | Konva.Group | null {
   switch (layer.type) {
     case 'rect':
@@ -117,7 +118,7 @@ function buildShape(
       canvas.width = iw
       canvas.height = ih
       const ctx = canvas.getContext('2d')!
-      renderGenerator(ctx, iw, ih, layer, t)
+      renderGenerator(ctx, iw, ih, layer, t, loopSec)
       return new Konva.Image({ image: canvas, ...bitmapConfig(layer) })
     }
   }
@@ -174,7 +175,7 @@ export async function renderSceneToCanvas(
     const infos = isPathLayer(l) && hasPathPresets(l) ? getPathInfos(l) : undefined
     const frame = evaluateLayer(l, t, animCtx, infos)
     const pins = l.type === 'puppet' ? instancePins(l, t, animCtx) : undefined
-    const shape = buildShape(l, t, pixelRatio, images, frame.paths, pins)
+    const shape = buildShape(l, t, pixelRatio, images, frame.paths, pins, doc.timeline.durationSec)
     if (!shape) continue
     const group = new Konva.Group(layerGroupConfig(l))
     const inner = new Konva.Group(animatedGroupConfig(l, frame))

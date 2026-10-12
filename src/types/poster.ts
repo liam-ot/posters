@@ -141,7 +141,7 @@ export interface ImageLayer extends BaseLayer {
   strokeStyle?: StrokeStyle
 }
 
-export type GeneratorKind = 'noise' | 'static' | 'pattern'
+export type GeneratorKind = 'noise' | 'static' | 'pattern' | 'gltest' | 'clouds' | 'aura'
 
 export interface GeneratorLayer extends BaseLayer {
   type: 'generator'

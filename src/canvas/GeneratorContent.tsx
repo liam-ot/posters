@@ -4,6 +4,7 @@ import { Image as KonvaImage } from 'react-konva'
 import type { GeneratorLayer } from '../types/poster'
 import { internalSize, renderGenerator } from '../generators/runtime'
 import { useTimeline } from '../store/timeline'
+import { useEditor } from '../store/editor'
 import { bitmapConfig } from '../render/configs'
 
 export function GeneratorContent({ layer }: { layer: GeneratorLayer }) {
@@ -13,6 +14,7 @@ export function GeneratorContent({ layer }: { layer: GeneratorLayer }) {
 
   // Only animated generators subscribe to the clock (others always read 0).
   const time = useTimeline((s) => (layer.animated ? s.time : 0))
+  const loopSec = useEditor((s) => s.doc?.timeline.durationSec ?? 0)
 
   const paramsKey = JSON.stringify(layer.params)
 
@@ -23,7 +25,7 @@ export function GeneratorContent({ layer }: { layer: GeneratorLayer }) {
     if (canvas.height !== ih) canvas.height = ih
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    renderGenerator(ctx, iw, ih, layer, time)
+    renderGenerator(ctx, iw, ih, layer, time, loopSec)
     const node = imageRef.current
     if (node) {
       node.image(canvas)
@@ -37,6 +39,7 @@ export function GeneratorContent({ layer }: { layer: GeneratorLayer }) {
     layer.height,
     paramsKey,
     time,
+    loopSec,
   ])
 
   return (

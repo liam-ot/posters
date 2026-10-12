@@ -5,6 +5,8 @@ import {
   Image as ImageIcon,
   Maximize2,
   Sparkles,
+  Cloud,
+  Sun,
   Square,
   Type,
   Waves,
@@ -118,6 +120,10 @@ export function Toolbar() {
                 { kind: 'noise', label: 'Noise', icon: <Waves size={15} /> },
                 { kind: 'static', label: 'Static', icon: <Tv size={15} /> },
                 { kind: 'pattern', label: 'Pattern', icon: <Grid3x3 size={15} /> },
+                { kind: 'clouds', label: 'Clouds', icon: <Cloud size={15} /> },
+                { kind: 'aura', label: 'Aura', icon: <Sun size={15} /> },
+                // TEMPORARY (motion-generators Phase 0); remove in Phase 3.
+                { kind: 'gltest', label: 'Shader test', icon: <Sparkles size={15} /> },
               ] as { kind: GeneratorKind; label: string; icon: React.ReactNode }[]
             ).map((g) => (
               <DropdownMenu.Item

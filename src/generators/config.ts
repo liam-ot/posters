@@ -77,6 +77,51 @@ export const GENERATORS: Record<GeneratorKind, GeneratorConfig> = {
       { key: 'colorB', label: 'Foreground', type: 'color' },
     ],
   },
+  // Defaults, controls and ranges match the Noise & Texture plugin (docs/plans/motion-generators.md).
+  clouds: {
+    defaults: {
+      // The plugin starts with see-through colours (exact values aren't shown). A nearly
+      // clear grey sky gives its light, softly shaded clouds and lets the poster show through.
+      colorA: 'rgba(200, 200, 200, 0.15)',
+      colorB: 'rgba(60, 60, 60, 0)',
+      speed: 0.2,
+      scale: 0,
+      light: 0.5,
+      shadow: 0.5,
+      tint: 0.6,
+      coverage: 0.28,
+      alpha: 1,
+    },
+    controls: [
+      { key: 'colorA', label: 'Sky top', type: 'color' },
+      { key: 'colorB', label: 'Sky bottom', type: 'color' },
+      { key: 'speed', label: 'Speed', type: 'slider', min: 0, max: 1, step: 0.01 },
+      { key: 'scale', label: 'Scale', type: 'slider', min: 0, max: 1, step: 0.01 },
+      { key: 'light', label: 'Light', type: 'slider', min: 0, max: 1, step: 0.01 },
+      { key: 'shadow', label: 'Shadow', type: 'slider', min: 0, max: 1, step: 0.01 },
+      { key: 'tint', label: 'Tint', type: 'slider', min: 0, max: 1, step: 0.01 },
+      { key: 'coverage', label: 'Coverage', type: 'slider', min: 0, max: 1, step: 0.01 },
+      { key: 'alpha', label: 'Alpha', type: 'slider', min: 0, max: 1, step: 0.01 },
+    ],
+  },
+  aura: {
+    defaults: { background: '#000000', color: '#5000ff', speed: 1, detail: 0.49 },
+    controls: [
+      { key: 'background', label: 'Background', type: 'color' },
+      { key: 'color', label: 'Color', type: 'color' },
+      { key: 'speed', label: 'Speed', type: 'slider', min: 0, max: 1, step: 0.01 },
+      { key: 'detail', label: 'Detail', type: 'slider', min: 0, max: 1, step: 0.01 },
+    ],
+  },
+  // TEMPORARY (Phase 0 of docs/plans/motion-generators.md); remove in Phase 3.
+  gltest: {
+    defaults: { speed: 0.5, colorA: '#101018', colorB: '#7c5cff' },
+    controls: [
+      { key: 'speed', label: 'Speed', type: 'slider', min: 0, max: 1, step: 0.01 },
+      { key: 'colorA', label: 'Color A', type: 'color' },
+      { key: 'colorB', label: 'Color B', type: 'color' },
+    ],
+  },
 }
 
 export function defaultParams(kind: GeneratorKind): Record<string, ParamValue> {
