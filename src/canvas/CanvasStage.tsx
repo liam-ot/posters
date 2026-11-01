@@ -10,6 +10,7 @@ import { LayerBoundary } from './LayerBoundary'
 import { TextEditorOverlay } from './TextEditorOverlay'
 import { useContainerSize } from './useContainerSize'
 import { setStage } from './stageHandle'
+import { isTyping } from '../lib/keyboard'
 
 const MIN_SCALE = 0.02
 const MAX_SCALE = 8
@@ -125,14 +126,6 @@ export function CanvasStage() {
 
   // Space to pan; Delete/Backspace to remove selection (when not typing).
   useEffect(() => {
-    const isTyping = () => {
-      const el = document.activeElement
-      return (
-        el instanceof HTMLInputElement ||
-        el instanceof HTMLTextAreaElement ||
-        (el as HTMLElement)?.isContentEditable
-      )
-    }
     const down = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !isTyping()) {
         e.preventDefault()

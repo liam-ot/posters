@@ -78,10 +78,7 @@ export function ColorPicker({
           </div>
           <div className="flex items-center gap-2">
             <span className="w-14 shrink-0 text-xs text-[var(--color-muted)]">Opacity</span>
-            <Slider value={c.a} min={0} max={1} step={0.01} onChange={(a) => emit({ ...c, a }, true)} />
-            <span className="w-9 shrink-0 text-right text-xs tabular-nums text-[var(--color-muted)]">
-              {Math.round(c.a * 100)}%
-            </span>
+            <Slider value={c.a} min={0} max={1} step={0.01} display={100} suffix="%" onChange={(a) => emit({ ...c, a }, true)} />
           </div>
           <div className="mt-2 flex gap-1.5">
             <button

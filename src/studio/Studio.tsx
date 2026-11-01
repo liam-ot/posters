@@ -383,7 +383,6 @@ function MeshSection({ asset }: { asset: PuppetAsset }) {
     <PanelSection title="Mesh">
       <Field label="Detail">
         <Slider value={detail} min={100} max={600} step={25} onChange={setDetail} />
-        <span className="w-9 shrink-0 text-right text-xs tabular-nums text-[var(--color-muted)]">{detail}</span>
       </Field>
       <Field label="Show mesh">
         <Toggle value={showMesh} onChange={setShowMesh} />

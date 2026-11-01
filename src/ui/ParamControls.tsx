@@ -29,11 +29,6 @@ export function ParamControls({
                   step={c.step}
                   onChange={(val) => onChange(c.key, val)}
                 />
-                <span className="w-9 shrink-0 text-right text-xs text-[var(--color-muted)]">
-                  {typeof v === 'number' && c.step < 1
-                    ? (v as number).toFixed(2)
-                    : v}
-                </span>
               </>
             )}
             {c.type === 'color' && (

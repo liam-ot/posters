@@ -110,20 +110,20 @@ function TransformSection({
   return (
     <PanelSection title="Transform">
       <div className="grid grid-cols-2 gap-x-2">
-        <Field label="X">
+        <Field label="X" compact>
           <NumberInput value={layer.x} onChange={(v) => patch({ x: v })} />
         </Field>
-        <Field label="Y">
+        <Field label="Y" compact>
           <NumberInput value={layer.y} onChange={(v) => patch({ y: v })} />
         </Field>
-        <Field label="W">
+        <Field label="W" compact>
           <NumberInput
             value={layer.width}
             min={1}
             onChange={(v) => patch({ width: v })}
           />
         </Field>
-        <Field label="H">
+        <Field label="H" compact>
           <NumberInput
             value={layer.height}
             min={1}
@@ -155,10 +155,9 @@ function AppearanceSection({
         <Slider
           value={layer.opacity}
           onChange={(v) => patch({ opacity: v })}
+          display={100}
+          suffix="%"
         />
-        <span className="w-9 shrink-0 text-right text-xs text-[var(--color-muted)]">
-          {Math.round(layer.opacity * 100)}%
-        </span>
       </Field>
       <Field label="Blend">
         <Select

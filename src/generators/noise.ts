@@ -3,6 +3,9 @@ import { hexToRgb, lerpRgb, mulberry32, type RGB } from './util'
 
 type Params = Record<string, number | string | boolean>
 
+// Render size (long side) the Scale slider was tuned at: the editor preview cap.
+const REF_DIM = 512
+
 // Memoize noise field per seed so we don't rebuild the permutation each frame.
 const noiseCache = new Map<number, ReturnType<typeof createNoise3D>>()
 function noiseFor(seed: number) {
@@ -22,7 +25,9 @@ export function renderNoise(
   t: number,
   seed: number,
 ) {
-  const freq = (p.scale as number) / 1000 // 1..100 -> fine..coarse
+  // Scale is relative to the layer, not the pixel grid, so the editor preview
+  // (long side capped at REF_DIM) and full-resolution export show the same noise.
+  const freq = ((p.scale as number) / 1000) * (REF_DIM / Math.max(w, h))
   const speed = p.speed as number
   const contrast = p.contrast as number
   const mono = p.mono as boolean

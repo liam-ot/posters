@@ -1,14 +1,6 @@
 import { useEffect } from 'react'
 import { useEditor } from '../store/editor'
-
-function isTyping() {
-  const el = document.activeElement
-  return (
-    el instanceof HTMLInputElement ||
-    el instanceof HTMLTextAreaElement ||
-    (el as HTMLElement | null)?.isContentEditable === true
-  )
-}
+import { isTyping } from '../lib/keyboard'
 
 /** Global editor keyboard shortcuts (undo/redo, duplicate, copy/paste, nudge, tools). */
 export function useShortcuts() {
