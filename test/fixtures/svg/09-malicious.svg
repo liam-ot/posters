@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="300" height="200" viewBox="0 0 150 100" onload="window.__pwned = (window.__pwned||0) + 1; parent.__pwned = 1">
+  <script>window.__pwned = (window.__pwned||0) + 1; parent.__pwned = 1; top.__pwned = 1;</script>
+  <style>
+    @import url("http://127.0.0.1:9/evil.css");
+    .bg { fill: url("http://127.0.0.1:9/paint.svg#x"); background: url(http://127.0.0.1:9/tracker.png) }
+  </style>
+  <rect class="bg" x="5" y="5" width="60" height="40" fill="#2a9d8f" onclick="parent.__pwned = 2" onmouseover="parent.__pwned = 3"/>
+  <a xlink:href="javascript:parent.__pwned=4"><rect x="75" y="5" width="60" height="40" fill="#e63946"/></a>
+  <image href="http://127.0.0.1:9/tracker.png" x="5" y="55" width="10" height="10"/>
+  <use href="http://127.0.0.1:9/evil.svg#sym" x="20" y="60"/>
+  <foreignObject x="0" y="50" width="100" height="40"><body xmlns="http://www.w3.org/1999/xhtml"><iframe src="http://127.0.0.1:9/"></iframe><img src="x" onerror="parent.__pwned = 5"/></body></foreignObject>
+  <rect x="75" y="55" width="60" height="40" fill="#3a86ff" style="filter:url(http://127.0.0.1:9/f.svg#f)"/>
+  <circle cx="40" cy="80" r="10" fill="#ffbe0b"><set attributeName="href" to="javascript:parent.__pwned=6"/><animate attributeName="r" values="10;20;10" dur="1s" repeatCount="indefinite"/></circle>
+</svg>

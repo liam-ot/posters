@@ -1,34 +1,28 @@
 import Konva from 'konva'
-import type { Layer, PosterDoc, StrokeStyle } from '../types/poster'
+import type { Layer, PosterDoc } from '../types/poster'
 import { renderGenerator } from '../generators/runtime'
-import { strokeDash } from '../canvas/stroke'
+import { measureTextHeight } from '../canvas/textMetrics'
+import { pathNodeConfigs } from '../render/paths'
+import { batchSceneFunc, canBatch, segsSceneFunc, type BatchItem } from '../render/segShape'
+import { evaluateLayer } from '../animation/evaluate'
+import { hasPathPresets } from '../animation/presets'
+import type { PathFrame } from '../animation/types'
+import { getPathInfos, isPathLayer } from '../render/pathInfo'
+import { contextFor } from '../animation/timing'
+import { instancePins } from '../puppet/pins'
+import type { UV } from '../puppet/types'
+import { animatedGroupConfig } from '../render/transform'
+import {
+  bitmapConfig,
+  borderConfig,
+  ellipseConfig,
+  layerBorder,
+  layerGroupConfig,
+  rectConfig,
+  textConfig,
+} from '../render/configs'
 
 const GENERATOR_CAP = 2048
-
-function fontStyleString(weight: number | string, italic: boolean) {
-  return `${italic ? 'italic ' : ''}${weight}`
-}
-
-/** A border rect stroked just inside a w×h box, matching the live canvas. */
-function borderRect(
-  w: number,
-  h: number,
-  stroke: string,
-  strokeWidth: number,
-  strokeStyle: StrokeStyle | undefined,
-): Konva.Rect {
-  const dash = strokeDash(strokeStyle, strokeWidth)
-  return new Konva.Rect({
-    x: strokeWidth / 2,
-    y: strokeWidth / 2,
-    width: Math.max(0, w - strokeWidth),
-    height: Math.max(0, h - strokeWidth),
-    stroke,
-    strokeWidth,
-    dash: dash.dash,
-    lineCap: dash.lineCap,
-  })
-}
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -46,53 +40,32 @@ function buildShape(
   t: number,
   pixelRatio: number,
   images: Map<string, HTMLImageElement>,
+  pathFrames?: PathFrame[],
+  pins?: Map<string, UV>,
+  loopSec = 0,
 ): Konva.Shape | Konva.Group | null {
   switch (layer.type) {
-    case 'rect': {
-      const dash = strokeDash(layer.strokeStyle, layer.strokeWidth ?? 0)
-      return new Konva.Rect({
-        width: layer.width,
-        height: layer.height,
-        fill: layer.fill,
-        cornerRadius: layer.cornerRadius,
-        stroke: layer.stroke,
-        strokeWidth: layer.strokeWidth,
-        dash: dash.dash,
-        lineCap: dash.lineCap,
-      })
-    }
-    case 'ellipse': {
-      const dash = strokeDash(layer.strokeStyle, layer.strokeWidth ?? 0)
-      return new Konva.Ellipse({
-        x: layer.width / 2,
-        y: layer.height / 2,
-        radiusX: layer.width / 2,
-        radiusY: layer.height / 2,
-        fill: layer.fill,
-        stroke: layer.stroke,
-        strokeWidth: layer.strokeWidth,
-        dash: dash.dash,
-        lineCap: dash.lineCap,
-      })
-    }
+    case 'rect':
+      return new Konva.Rect(rectConfig(layer))
+    case 'ellipse':
+      return new Konva.Ellipse(ellipseConfig(layer))
     case 'text': {
-      const text = new Konva.Text({
-        width: layer.width,
-        text: layer.text,
-        fontFamily: layer.fontFamily,
-        fontSize: layer.fontSize,
-        fontStyle: fontStyleString(layer.fontWeight, layer.fontStyle === 'italic'),
-        fill: layer.fill,
-        align: layer.align,
-        lineHeight: layer.lineHeight,
-        letterSpacing: layer.letterSpacing,
-        wrap: 'word',
-      })
-      const sw = layer.strokeWidth ?? 0
-      if (sw > 0 && layer.stroke) {
+      const text = new Konva.Text(textConfig(layer))
+      const border = layerBorder(layer)
+      if (border) {
         const group = new Konva.Group()
         group.add(text)
-        group.add(borderRect(layer.width, text.height(), layer.stroke, sw, layer.strokeStyle))
+        group.add(
+          new Konva.Rect(
+            borderConfig(
+              layer.width,
+              measureTextHeight(layer, layer.width),
+              border.stroke,
+              border.strokeWidth,
+              border.strokeStyle,
+            ),
+          ),
+        )
         return group
       }
       return text
@@ -100,19 +73,41 @@ function buildShape(
     case 'image': {
       const img = images.get(layer.id)
       if (!img) return null
-      const image = new Konva.Image({
-        image: img,
-        width: layer.width,
-        height: layer.height,
-      })
-      const sw = layer.strokeWidth ?? 0
-      if (sw > 0 && layer.stroke) {
+      const image = new Konva.Image({ image: img, ...bitmapConfig(layer) })
+      const border = layerBorder(layer)
+      if (border) {
         const group = new Konva.Group()
         group.add(image)
-        group.add(borderRect(layer.width, layer.height, layer.stroke, sw, layer.strokeStyle))
+        group.add(
+          new Konva.Rect(
+            borderConfig(
+              layer.width,
+              layer.height,
+              border.stroke,
+              border.strokeWidth,
+              border.strokeStyle,
+            ),
+          ),
+        )
         return group
       }
       return image
+    }
+    case 'shape':
+    case 'svg':
+    case 'puppet': {
+      const group = new Konva.Group()
+      const infos = pathFrames ? getPathInfos(layer) : undefined
+      const nodes = pathNodeConfigs(layer, pathFrames, infos, pins)
+      // Same choice as the live canvas (canvas/PathNodeView): batch animated character frames.
+      if (nodes.length > 0 && canBatch(nodes)) {
+        group.add(new Konva.Shape({ sceneFunc: batchSceneFunc(nodes as BatchItem[]), listening: false }))
+      } else {
+        for (const p of nodes) {
+          group.add(p.segs ? new Konva.Shape({ ...p.config, sceneFunc: segsSceneFunc(p.segs) }) : new Konva.Path(p.config))
+        }
+      }
+      return group
     }
     case 'generator': {
       const long = Math.max(layer.width, layer.height) * pixelRatio
@@ -123,25 +118,23 @@ function buildShape(
       canvas.width = iw
       canvas.height = ih
       const ctx = canvas.getContext('2d')!
-      renderGenerator(ctx, iw, ih, layer, t)
-      return new Konva.Image({
-        image: canvas,
-        width: layer.width,
-        height: layer.height,
-      })
+      renderGenerator(ctx, iw, ih, layer, t, loopSec)
+      return new Konva.Image({ image: canvas, ...bitmapConfig(layer) })
     }
   }
 }
 
 /**
  * Render the whole poster to a fresh canvas at `artboard * pixelRatio`, at the
- * given time t. Used for crisp PNG/JPG export and per-frame MP4 capture.
- * Excludes the transformer and view transform entirely.
+ * given time t (or, with `rest`, in its final un-animated state). Used for crisp
+ * PNG/JPG export, thumbnails and per-frame MP4 capture. Excludes the transformer
+ * and view transform entirely.
  */
 export async function renderSceneToCanvas(
   doc: PosterDoc,
   t: number,
   pixelRatio: number,
+  { rest = false }: { rest?: boolean } = {},
 ): Promise<HTMLCanvasElement> {
   const { width: W, height: H, background } = doc.artboard
 
@@ -173,18 +166,21 @@ export async function renderSceneToCanvas(
 
   layer.add(new Konva.Rect({ x: 0, y: 0, width: W, height: H, fill: background }))
 
+  const animCtx = contextFor(doc.timeline, rest)
+
   for (const l of doc.layers) {
     if (!l.visible) continue
-    const shape = buildShape(l, t, pixelRatio, images)
+    // Evaluate first: path presets need the layer's measured paths, and the
+    // resulting per-path state feeds the shape builder.
+    const infos = isPathLayer(l) && hasPathPresets(l) ? getPathInfos(l) : undefined
+    const frame = evaluateLayer(l, t, animCtx, infos)
+    const pins = l.type === 'puppet' ? instancePins(l, t, animCtx) : undefined
+    const shape = buildShape(l, t, pixelRatio, images, frame.paths, pins, doc.timeline.durationSec)
     if (!shape) continue
-    const group = new Konva.Group({
-      x: l.x,
-      y: l.y,
-      rotation: l.rotation,
-      opacity: l.opacity,
-      globalCompositeOperation: l.blendMode,
-    })
-    group.add(shape)
+    const group = new Konva.Group(layerGroupConfig(l))
+    const inner = new Konva.Group(animatedGroupConfig(l, frame))
+    inner.add(shape)
+    group.add(inner)
     layer.add(group)
   }
 
@@ -192,4 +188,20 @@ export async function renderSceneToCanvas(
   const canvas = layer.toCanvas({ pixelRatio: 1 }) as HTMLCanvasElement
   stage.destroy()
   return canvas
+}
+
+/**
+ * JPG and MP4 can't store transparency (it would come out black), so a
+ * transparent background or transparent areas are flattened onto white, as
+ * design tools do for JPG. PNG keeps real transparency.
+ */
+export function flattenOnWhite(canvas: HTMLCanvasElement): HTMLCanvasElement {
+  const out = document.createElement('canvas')
+  out.width = canvas.width
+  out.height = canvas.height
+  const ctx = out.getContext('2d')!
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, out.width, out.height)
+  ctx.drawImage(canvas, 0, 0)
+  return out
 }

@@ -2,7 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { useState } from 'react'
 import { Check, Download, Film, Loader2 } from 'lucide-react'
 import { useEditor } from '../store/editor'
-import { exportImageToRoot } from '../export/image'
+import { exportImageToRoot, type StillFrame } from '../export/image'
 import { exportVideoToRoot } from '../export/video'
 import { Segmented, Select } from './controls'
 
@@ -12,6 +12,7 @@ export function ExportDialog() {
   const doc = useEditor((s) => s.doc)
   const [format, setFormat] = useState<Format>('png')
   const [scale, setScale] = useState(1)
+  const [frame, setFrame] = useState<StillFrame>('rest')
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState(0)
   const [result, setResult] = useState<string | null>(null)
@@ -31,7 +32,7 @@ export function ExportDialog() {
     setProgress(0)
     const r = isVideo
       ? await exportVideoToRoot(doc, { scale, onProgress: setProgress })
-      : await exportImageToRoot(doc, { format, scale })
+      : await exportImageToRoot(doc, { format, scale, frame })
     setBusy(false)
     setResult(r.path ? `Saved ${r.path}` : `Error: ${r.error ?? 'failed'}`)
   }
@@ -63,6 +64,25 @@ export function ExportDialog() {
                 onChange={(v) => setFormat(v)}
               />
             </div>
+
+            {!isVideo && (
+              <div>
+                <p className="mb-1.5 text-xs text-[var(--color-muted)]">Frame</p>
+                <Segmented
+                  value={frame}
+                  options={[
+                    { value: 'rest', label: 'Rest state' },
+                    { value: 'current', label: 'Current frame' },
+                  ]}
+                  onChange={(v) => setFrame(v)}
+                />
+                <p className="mt-1 text-xs text-[var(--color-muted)]">
+                  {frame === 'rest'
+                    ? 'The finished poster, with all animations at their resting state.'
+                    : 'Exactly what is on the canvas at the playhead.'}
+                </p>
+              </div>
+            )}
 
             <div>
               <p className="mb-1.5 text-xs text-[var(--color-muted)]">

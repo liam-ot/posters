@@ -69,10 +69,14 @@ export function renderPattern(
       break
     }
     case 'checker': {
-      for (let y = y0; y < y1; y += cell) {
-        for (let x = x0 + offset; x < x1; x += cell) {
-          const col = Math.floor((x - x0) / cell)
-          const row = Math.floor((y - y0) / cell)
+      // A checker only repeats every two cells (one cell over swaps the colours),
+      // so its slide wraps at 2 cells; start a period early to keep the left edge covered.
+      const period = cell * 2
+      const off = (((t * speed * cell) % period) + period) % period
+      let row = 0
+      for (let y = y0; y < y1; y += cell, row++) {
+        let col = 0
+        for (let x = x0 - period + off; x < x1; x += cell, col++) {
           if ((col + row) % 2 === 0) ctx.fillRect(x, y, cell, cell)
         }
       }

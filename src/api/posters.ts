@@ -1,4 +1,5 @@
 import type { PosterDoc, PosterSummary } from '../types/poster'
+import { dehydrateCharacters } from '../puppet/share'
 
 export async function listPosters(): Promise<PosterSummary[]> {
   const res = await fetch('/api/posters')
@@ -19,7 +20,8 @@ export async function savePoster(
   await fetch(`/api/posters/${doc.id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ doc, thumbnail }),
+    // Linked character copies are saved as references to one shared snapshot.
+    body: JSON.stringify({ doc: dehydrateCharacters(doc), thumbnail }),
   })
 }
 

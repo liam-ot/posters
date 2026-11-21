@@ -12,12 +12,15 @@ import {
 import { createDefaultDoc } from '../lib/layers'
 import { useEditor } from '../store/editor'
 import { useUI } from '../store/ui'
+import { Library } from './Library'
 
 export function Gallery() {
   const [posters, setPosters] = useState<PosterSummary[]>([])
   const [loading, setLoading] = useState(true)
   const loadDoc = useEditor((s) => s.loadDoc)
   const setView = useUI((s) => s.setView)
+  const tab = useUI((s) => s.galleryTab)
+  const setTab = useUI((s) => s.setGalleryTab)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -68,19 +71,45 @@ export function Gallery() {
   return (
     <div className="h-full overflow-y-auto">
       <header className="flex h-14 items-center justify-between border-b border-[var(--color-border)] px-6">
-        <span className="bg-gradient-to-r from-[var(--color-accent)] to-[var(--color-accent-2)] bg-clip-text text-lg font-bold text-transparent">
-          Poster Studio
-        </span>
-        <button
-          onClick={createNew}
-          className="flex items-center gap-2 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
-        >
-          <Plus size={16} /> New poster
-        </button>
+        <div className="flex items-center gap-6">
+          <span className="bg-gradient-to-r from-[var(--color-accent)] to-[var(--color-accent-2)] bg-clip-text text-lg font-bold text-transparent">
+            Poster Studio
+          </span>
+          <nav className="flex gap-1">
+            {(
+              [
+                ['posters', 'Posters'],
+                ['characters', 'Characters'],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                className={`rounded-md px-3 py-1.5 text-sm ${
+                  tab === id
+                    ? 'bg-[var(--color-panel-2)] text-[var(--color-text)]'
+                    : 'text-[var(--color-muted)] hover:text-[var(--color-text)]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+        </div>
+        {tab === 'posters' && (
+          <button
+            onClick={createNew}
+            className="flex items-center gap-2 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+          >
+            <Plus size={16} /> New poster
+          </button>
+        )}
       </header>
 
       <div className="mx-auto max-w-6xl px-6 py-8">
-        {loading ? (
+        {tab === 'characters' ? (
+          <Library />
+        ) : loading ? (
           <p className="text-sm text-[var(--color-muted)]">Loading…</p>
         ) : posters.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">

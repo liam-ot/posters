@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="400" height="300" viewBox="0 0 200 150">
+  <defs>
+    <linearGradient id="obbH"><stop offset="0" stop-color="#e63946"/><stop offset="1" stop-color="#ffbe0b"/></linearGradient>
+    <linearGradient id="obbV" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a86ff"/><stop offset="0.5" stop-color="#ffffff"/><stop offset="1" stop-color="#8338ec"/></linearGradient>
+    <linearGradient id="userRot" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="60" y2="0" gradientTransform="rotate(45 100 75)">
+      <stop offset="0" stop-color="#06d6a0"/><stop offset="1" stop-color="#073b4c"/>
+    </linearGradient>
+    <radialGradient id="rad"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e63946" stop-opacity="0.2"/></radialGradient>
+    <radialGradient id="radFocal" cx="0.5" cy="0.5" r="0.5" fx="0.3" fy="0.3"><stop offset="0" stop-color="#ffbe0b"/><stop offset="1" stop-color="#7209b7"/></radialGradient>
+    <linearGradient id="base"><stop offset="0" stop-color="#ff006e"/><stop offset="1" stop-color="#3a86ff"/></linearGradient>
+    <linearGradient id="inherit" xlink:href="#base" x1="0" y1="1" x2="1" y2="0"/>
+  </defs>
+  <rect x="10" y="10" width="80" height="40" fill="url(#obbH)"/>
+  <rect x="100" y="10" width="40" height="40" fill="url(#obbV)" stroke="url(#obbH)" stroke-width="4"/>
+  <rect x="150" y="10" width="40" height="40" fill="url(#inherit)"/>
+  <rect x="70" y="60" width="60" height="60" fill="url(#userRot)"/>
+  <circle cx="40" cy="95" r="25" fill="url(#rad)"/>
+  <circle cx="160" cy="95" r="25" fill="url(#radFocal)" fill-opacity="0.8"/>
+  <rect x="10" y="130" width="180" height="12" fill="url(#missing) #888"/>
+</svg>

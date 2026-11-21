@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300" viewBox="-50 -50 100 150">
+  <rect x="-45" y="-45" width="90" height="20" fill="#264653" stroke-dasharray="6 3" stroke="#e9c46a" stroke-width="3"/>
+  <g opacity="0.5"><rect x="-40" y="-15" width="40" height="40" fill="#e63946"/><circle cx="10" cy="5" r="22" fill="#3a86ff"/></g>
+  <rect x="-45" y="35" width="40" height="20" fill="#06d6a0" display="none"/>
+  <rect x="5" y="35" width="40" height="20" fill="#06d6a0" visibility="hidden"/>
+  <polyline points="-45,90 -20,60 0,90 20,60 45,90" fill="none" stroke="#8338ec" stroke-width="8" stroke-linejoin="round" stroke-linecap="square"/>
+  <polyline points="-45,105 -20,75 0,105" fill="none" stroke="#f4a261" stroke-width="8" stroke-linejoin="miter" stroke-miterlimit="1"/>
+  <svg x="10" y="70" width="30" height="30" viewBox="0 0 10 10"><rect width="10" height="10" fill="#ff006e"/><circle cx="5" cy="5" r="3" fill="#fff"/></svg>
+</svg>

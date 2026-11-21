@@ -5,8 +5,14 @@ import type {
   Layer,
   LayerType,
   PosterDoc,
+  ShapeKind,
 } from '../types/poster'
+import type { SvgImport } from '../svg/parse'
+import type { PuppetAsset } from '../puppet/types'
+import { placeInstance } from '../puppet/convert'
 import { defaultParams } from '../generators/config'
+import { SHADERS } from '../generators/shaders'
+import { SHAPES, defaultShapeParams } from '../shapes/library'
 import { measureTextNatural } from '../canvas/textMetrics'
 
 export const DEFAULT_ARTBOARD: ArtboardConfig = {
@@ -38,9 +44,12 @@ let createdCount = 0
 
 interface CreateOpts {
   generator?: GeneratorKind
+  shape?: ShapeKind
+  svg?: Pick<SvgImport, 'name' | 'viewBox' | 'paths' | 'sourceSvg' | 'warnings'>
   src?: string
   naturalWidth?: number
   naturalHeight?: number
+  asset?: PuppetAsset
 }
 
 /** Build a new layer of the given type, centered on the artboard. */
@@ -136,6 +145,51 @@ export function createLayer(
         src: opts.src || '',
       }
     }
+    case 'shape': {
+      const kind = opts.shape || 'star'
+      const def = SHAPES[kind]
+      const { w: width, h: height } = def.size
+      const color = pickColor(n)
+      return {
+        ...base,
+        ...center(width, height),
+        type: 'shape',
+        name: def.label,
+        width,
+        height,
+        shape: kind,
+        params: defaultShapeParams(kind),
+        // Closed shapes start filled, line shapes start stroked.
+        fill: def.line ? null : color,
+        stroke: def.line ? color : null,
+        strokeWidth: def.line ? 8 : 0,
+        strokeStyle: 'solid',
+      }
+    }
+    case 'svg': {
+      const svg = opts.svg!
+      // Fit within 80% of the artboard, keeping the SVG's own proportions.
+      const scale = Math.min(
+        (artboard.width * 0.8) / svg.viewBox.width,
+        (artboard.height * 0.8) / svg.viewBox.height,
+      )
+      const width = Math.max(10, Math.round(svg.viewBox.width * scale))
+      const height = Math.max(10, Math.round(svg.viewBox.height * scale))
+      return {
+        ...base,
+        ...center(width, height),
+        type: 'svg',
+        name: svg.name,
+        width,
+        height,
+        viewBox: svg.viewBox,
+        paths: svg.paths,
+        sourceSvg: svg.sourceSvg,
+        importWarnings: svg.warnings,
+      }
+    }
+    case 'puppet':
+      return placeInstance(opts.asset!, artboard, base.id)
     case 'generator': {
       const width = artboard.width
       const height = artboard.height
@@ -149,7 +203,8 @@ export function createLayer(
         width,
         height,
         generator,
-        animated: false,
+        // Shader generators are motion effects: they start playing.
+        animated: generator in SHADERS,
         seed: Math.floor(Math.random() * 100000),
         params: defaultParams(generator),
       }

@@ -1,11 +1,12 @@
 import { useEffect } from 'react'
-import { Pause, Play, RotateCcw } from 'lucide-react'
+import { Minimize2, Clapperboard, Eye, PanelBottomClose, PanelBottomOpen, Pause, Play, RotateCcw } from 'lucide-react'
 import { useEditor } from '../store/editor'
 import { useTimeline } from '../store/timeline'
+import { useUI } from '../store/ui'
 import { NumberInput } from './controls'
 
-/** rAF clock that advances the playhead while playing, looping on duration. */
-function useClock() {
+/** rAF clock that advances the playhead while playing, looping on duration. Lives in the editor, so it runs while the bar is folded. */
+export function useClock() {
   const playing = useTimeline((s) => s.playing)
   const setTime = useTimeline((s) => s.setTime)
   const setPlaying = useTimeline((s) => s.setPlaying)
@@ -37,19 +38,31 @@ function useClock() {
 }
 
 export function TimelineBar() {
-  useClock()
   const doc = useEditor((s) => s.doc)
   const updateTimeline = useEditor((s) => s.updateTimeline)
   const time = useTimeline((s) => s.time)
   const playing = useTimeline((s) => s.playing)
   const toggle = useTimeline((s) => s.toggle)
   const setTime = useTimeline((s) => s.setTime)
+  const showRest = useUI((s) => s.showRest)
+  const setShowRest = useUI((s) => s.setShowRest)
+  const timelineOpen = useUI((s) => s.timelineOpen)
+  const setBarCollapsed = useUI((s) => s.setBarCollapsed)
+  const setTimelineOpen = useUI((s) => s.setTimelineOpen)
 
   if (!doc) return null
-  const { durationSec, fps } = doc.timeline
+  const { durationSec, fps, bpm, beatsPerBar = 4 } = doc.timeline
+  const barSec = bpm ? (60 / bpm) * beatsPerBar : 0
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-panel)] px-3 py-2 shadow-lg">
+    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-panel)] px-3 py-2 shadow-lg">
+      <button
+        onClick={() => setBarCollapsed(true)}
+        title="Hide animation controls"
+        className="flex h-8 w-6 items-center justify-center rounded-lg text-[var(--color-muted)] hover:bg-[var(--color-panel-2)] hover:text-[var(--color-text)]"
+      >
+        <Minimize2 size={15} />
+      </button>
       <button
         onClick={toggle}
         title={playing ? 'Pause' : 'Play'}
@@ -65,6 +78,30 @@ export function TimelineBar() {
         <RotateCcw size={15} />
       </button>
 
+      <button
+        onClick={() => setShowRest(!showRest)}
+        title="Show rest state — every layer in its final, un-animated layout (easier editing)"
+        className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+          showRest
+            ? 'bg-[var(--color-accent)] text-white'
+            : 'text-[var(--color-muted)] hover:bg-[var(--color-panel-2)] hover:text-[var(--color-text)]'
+        }`}
+      >
+        <Eye size={15} />
+      </button>
+
+      <button
+        onClick={() => setTimelineOpen(!timelineOpen)}
+        title={timelineOpen ? 'Hide timeline' : 'Show timeline — animation bars per layer'}
+        className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+          timelineOpen
+            ? 'bg-[var(--color-accent)] text-white'
+            : 'text-[var(--color-muted)] hover:bg-[var(--color-panel-2)] hover:text-[var(--color-text)]'
+        }`}
+      >
+        {timelineOpen ? <PanelBottomClose size={15} /> : <PanelBottomOpen size={15} />}
+      </button>
+
       <input
         type="range"
         min={0}
@@ -75,7 +112,7 @@ export function TimelineBar() {
         className="h-1 w-48 cursor-pointer accent-[var(--color-accent)]"
       />
       <span className="w-16 text-center text-xs tabular-nums text-[var(--color-muted)]">
-        {time.toFixed(1)}s / {durationSec}s
+        {time.toFixed(1)}s / {Number(durationSec.toFixed(2))}s
       </span>
 
       <div className="h-6 w-px bg-[var(--color-border)]" />
@@ -84,7 +121,7 @@ export function TimelineBar() {
         <span>Dur</span>
         <div className="w-14">
           <NumberInput
-            value={durationSec}
+            value={Math.round(durationSec * 1000) / 1000}
             min={0.5}
             step={0.5}
             onChange={(v) => updateTimeline({ durationSec: v })}
@@ -103,6 +140,73 @@ export function TimelineBar() {
           />
         </div>
       </label>
+
+      <div className="h-6 w-px bg-[var(--color-border)]" />
+
+      <label
+        className="flex items-center gap-1 text-xs text-[var(--color-muted)]"
+        title="Tempo for beat-synced loops. 0 = off"
+      >
+        <span>BPM</span>
+        <div className="w-14">
+          <NumberInput
+            value={bpm ?? 0}
+            min={0}
+            max={300}
+            onChange={(v) => updateTimeline({ bpm: v > 0 ? v : undefined })}
+          />
+        </div>
+      </label>
+      {bpm && (
+        <>
+          <label className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
+            <span>Beats/bar</span>
+            <div className="w-12">
+              <NumberInput
+                value={beatsPerBar}
+                min={1}
+                max={16}
+                onChange={(v) => updateTimeline({ beatsPerBar: Math.round(v) })}
+              />
+            </div>
+          </label>
+          <label
+            className="flex items-center gap-1 text-xs text-[var(--color-muted)]"
+            title="Set the duration to a whole number of bars so loops line up"
+          >
+            <span>Bars</span>
+            <div className="w-14">
+              <NumberInput
+                value={Math.round((durationSec / barSec) * 100) / 100}
+                min={0.25}
+                step={1}
+                onChange={(v) =>
+                  // Exact, not rounded: a whole number of bars must divide the loops exactly.
+                  updateTimeline({ durationSec: v * barSec })
+                }
+              />
+            </div>
+          </label>
+        </>
+      )}
     </div>
+  )
+}
+
+/** The animation bar folded away: a small square in the canvas corner that unfolds it. */
+export function TimelineBarCollapsed() {
+  const setBarCollapsed = useUI((s) => s.setBarCollapsed)
+  const playing = useTimeline((s) => s.playing)
+  return (
+    <button
+      onClick={() => setBarCollapsed(false)}
+      title="Show animation controls"
+      className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-panel)] text-[var(--color-muted)] shadow-lg hover:text-[var(--color-text)]"
+    >
+      <Clapperboard size={17} />
+      {playing && (
+        <span title="Playing" className="absolute right-1.5 top-1.5 h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-accent)]" />
+      )}
+    </button>
   )
 }

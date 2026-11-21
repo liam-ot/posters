@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 150 100">
+  <defs>
+    <filter id="blur"><feGaussianBlur stdDeviation="2"/></filter>
+    <mask id="m"><rect width="150" height="100" fill="white"/><circle cx="40" cy="30" r="15" fill="black"/></mask>
+    <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3"><path d="M0 0 L6 3 L0 6 Z"/></marker>
+    <pattern id="pat" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="2" fill="red"/></pattern>
+  </defs>
+  <rect x="5" y="5" width="60" height="40" fill="#2a9d8f"/>
+  <rect x="75" y="5" width="60" height="40" fill="#e63946" filter="url(#blur)"/>
+  <rect x="5" y="55" width="60" height="40" fill="#3a86ff" mask="url(#m)"/>
+  <line x1="75" y1="60" x2="135" y2="60" stroke="#111" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="75" y="70" width="60" height="25" fill="url(#pat)"/>
+  <text x="80" y="90" font-size="10">Hello</text>
+  <image x="0" y="0" width="10" height="10" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="/>
+</svg>

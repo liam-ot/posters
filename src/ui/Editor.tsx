@@ -1,26 +1,37 @@
 import { useEffect } from 'react'
 import { ChevronLeft, Redo2, Undo2 } from 'lucide-react'
 import { CanvasStage } from '../canvas/CanvasStage'
-import { captureStageDataURL } from '../canvas/stageHandle'
+import { renderThumbnail } from '../export/thumbnail'
 import { savePoster } from '../api/posters'
 import { useEditor } from '../store/editor'
 import { useUI } from '../store/ui'
 import { useAutosave } from '../hooks/useAutosave'
 import { useShortcuts } from '../hooks/useShortcuts'
+import { syncLinkedAssets } from '../library/sync'
 import { Toolbar } from './Toolbar'
 import { Inspector } from './Inspector'
 import { LayersPanel } from './LayersPanel'
-import { TimelineBar } from './TimelineBar'
+import { TimelineBar, TimelineBarCollapsed, useClock } from './TimelineBar'
+import { TimelinePanel } from './TimelinePanel'
 import { ExportDialog } from './ExportDialog'
 
 export function Editor() {
+  useClock()
   useAutosave()
   useShortcuts()
   const doc = useEditor((s) => s.doc)
   const renameDoc = useEditor((s) => s.renameDoc)
   const setView = useUI((s) => s.setView)
+  const timelineOpen = useUI((s) => s.timelineOpen)
+  const barCollapsed = useUI((s) => s.barCollapsed)
   const undo = () => useEditor.temporal.getState().undo()
   const redo = () => useEditor.temporal.getState().redo()
+
+  // Pull library edits into linked characters on open and on return from the studio.
+  const docId = doc?.id
+  useEffect(() => {
+    if (docId) void syncLinkedAssets()
+  }, [docId])
 
   // If we somehow land here without a doc, return to the gallery.
   useEffect(() => {
@@ -29,10 +40,9 @@ export function Editor() {
 
   if (!doc) return null
 
-  const back = () => {
-    const pixelRatio = Math.min(1, 360 / doc.artboard.width)
-    const thumb = captureStageDataURL(doc, { pixelRatio })
-    savePoster(doc, thumb || undefined)
+  const back = async () => {
+    // Save first so the gallery lists the fresh thumbnail.
+    await savePoster(doc, await renderThumbnail(doc))
     setView('gallery')
   }
 
@@ -82,14 +92,23 @@ export function Editor() {
           <LayersPanel />
         </aside>
 
-        <main className="relative min-w-0 flex-1">
-          <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2">
-            <Toolbar />
+        <main className="flex min-w-0 flex-1 flex-col">
+          <div className="relative min-h-0 flex-1">
+            <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2">
+              <Toolbar />
+            </div>
+            <CanvasStage />
+            {barCollapsed ? (
+              <div className="absolute bottom-3 left-3 z-10">
+                <TimelineBarCollapsed />
+              </div>
+            ) : (
+              <div className="absolute bottom-3 left-1/2 z-10 max-w-[calc(100%-1.5rem)] -translate-x-1/2">
+                <TimelineBar />
+              </div>
+            )}
           </div>
-          <CanvasStage />
-          <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2">
-            <TimelineBar />
-          </div>
+          {timelineOpen && <TimelinePanel />}
         </main>
 
         <aside className="w-72 shrink-0 border-l border-[var(--color-border)] bg-[var(--color-panel)]">

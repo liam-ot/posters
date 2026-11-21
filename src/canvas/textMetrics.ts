@@ -1,5 +1,6 @@
 import Konva from 'konva'
 import type { TextLayer } from '../types/poster'
+import { fontStyleString } from '../render/configs'
 
 /** The text style fields that affect measured size. */
 export type TextStyle = Pick<
@@ -15,9 +16,7 @@ export type TextStyle = Pick<
 >
 
 /** Konva fontStyle string from weight + italic. */
-export function konvaFontStyle(weight: number | string, italic: boolean) {
-  return `${italic ? 'italic ' : ''}${weight}`
-}
+export const konvaFontStyle = fontStyleString
 
 // A single detached Konva.Text reused for all measurements. Konva computes the
 // wrapped line array on attr-set, independent of being attached to a stage, so

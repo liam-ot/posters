@@ -1,21 +1,38 @@
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import type Konva from 'konva'
 import { Ellipse, Group, Image as KonvaImage, Rect, Text } from 'react-konva'
-import type {
-  GeneratorLayer,
-  ImageLayer,
-  Layer,
-  StrokeStyle,
-} from '../types/poster'
+import type { GeneratorLayer, ImageLayer, Layer, StrokeStyle } from '../types/poster'
 import { useImage } from './useImage'
 import { GeneratorContent } from './GeneratorContent'
+import { PathsContent } from './PathsContent'
 import { measureTextHeight } from './textMetrics'
-import { strokeDash } from './stroke'
+import { useEditor } from '../store/editor'
+import { useTimeline } from '../store/timeline'
+import { useUI } from '../store/ui'
+import { evaluateLayer, hasActiveAnimations } from '../animation/evaluate'
+import { hasPathPresets } from '../animation/presets'
+import { getPathInfos, isPathLayer } from '../render/pathInfo'
+import { contextFor } from '../animation/timing'
+import { instancePins, motionAnimates } from '../puppet/pins'
+import { animatedGroupConfig } from '../render/transform'
+import {
+  bitmapConfig,
+  borderConfig,
+  ellipseConfig,
+  layerBorder,
+  layerGroupConfig,
+  rectConfig,
+  textConfig,
+} from '../render/configs'
 
 interface Props {
   layer: Layer
   isSelected?: boolean
   editing?: boolean
+  /** Pointer down: select (shift = add/remove). */
   onSelect: (id: string, additive: boolean) => void
+  /** Pointer up without dragging. */
+  onClick?: (id: string, additive: boolean) => void
   onChange: (id: string, patch: Partial<Layer>) => void
   onStartEdit?: (id: string) => void
 }
@@ -24,20 +41,12 @@ interface Props {
 const TEXT_NAME = 'layer-text'
 const BORDER_NAME = 'layer-border'
 
-/** Build the Konva fontStyle string from weight + italic. */
-function fontStyleString(weight: number | string, italic: boolean) {
-  return `${italic ? 'italic ' : ''}${weight}`
-}
-
 function ImageContent({ layer }: { layer: ImageLayer }) {
   const image = useImage(layer.src)
-  return <KonvaImage image={image} width={layer.width} height={layer.height} />
+  return <KonvaImage image={image} {...bitmapConfig(layer)} />
 }
 
-/**
- * A border stroked just inside the perimeter of a w×h box. Inset by half the
- * stroke width so the whole stroke sits inside the box edge.
- */
+/** Border stroked just inside a w×h box (see render/configs). */
 function BorderBox({
   w,
   h,
@@ -53,19 +62,10 @@ function BorderBox({
   strokeStyle?: StrokeStyle
   cornerRadius?: number
 }) {
-  const dash = strokeDash(strokeStyle, strokeWidth)
   return (
     <Rect
       name={BORDER_NAME}
-      x={strokeWidth / 2}
-      y={strokeWidth / 2}
-      width={Math.max(0, w - strokeWidth)}
-      height={Math.max(0, h - strokeWidth)}
-      stroke={stroke}
-      strokeWidth={strokeWidth}
-      cornerRadius={cornerRadius}
-      dash={dash.dash}
-      lineCap={dash.lineCap}
+      {...borderConfig(w, h, stroke, strokeWidth, strokeStyle, cornerRadius)}
       listening={false}
     />
   )
@@ -76,9 +76,71 @@ export function LayerNode({
   isSelected,
   editing,
   onSelect,
+  onClick,
   onChange,
   onStartEdit,
 }: Props) {
+  const outerRef = useRef<Konva.Group>(null)
+  const innerRef = useRef<Konva.Group>(null)
+  const layerRef = useRef(layer)
+  layerRef.current = layer
+
+  // Animated values live on the inner group (docs/adr/0003). Only layers with
+  // an active animation subscribe to the clock, so static layers don't re-render.
+  const moves = layer.type === 'puppet' && motionAnimates(layer.snapshot, layer.motionId)
+  const animated = hasActiveAnimations(layer) || moves
+  const time = useTimeline((s) => (animated ? s.time : 0))
+  const timeline = useEditor((s) => s.doc?.timeline)
+  const showRest = useUI((s) => s.showRest)
+  // Path-level presets need each path's measured length/centre (cached per layer).
+  const pathInfos = useMemo(
+    () => (isPathLayer(layer) && hasPathPresets(layer) ? getPathInfos(layer) : undefined),
+    [layer],
+  )
+  const ctx = timeline ? contextFor(timeline, showRest) : undefined
+  const frame = animated && ctx ? evaluateLayer(layer, time, ctx, pathInfos) : undefined
+  const pins = moves && ctx && layer.type === 'puppet' ? instancePins(layer, time, ctx) : undefined
+
+  // The Transformer sizes its box from the node's content. Measure the content
+  // as authored (ignoring the inner animation transform) so the selection box
+  // stays put — and never collapses to nothing at scale 0 — while a layer animates.
+  useLayoutEffect(() => {
+    const outer = outerRef.current
+    const inner = innerRef.current
+    if (!outer || !inner) return
+    const base = outer.getClientRect.bind(outer)
+    outer.getClientRect = (config) => {
+      if (!config?.skipTransform) return base(config)
+      // Vector layers: the layer box. Their geometry can change every frame (wobble)
+      // and the box is what the Inspector's W/H describe, so measuring the ink would jitter.
+      const l = layerRef.current
+      if (isPathLayer(l)) return { x: 0, y: 0, width: l.width, height: l.height }
+      let minX = Infinity
+      let minY = Infinity
+      let maxX = -Infinity
+      let maxY = -Infinity
+      for (const child of inner.getChildren()) {
+        if (!child.visible()) continue
+        const r = child.getClientRect({
+          relativeTo: inner,
+          skipShadow: config.skipShadow,
+          skipStroke: config.skipStroke,
+        })
+        if (r.width === 0 && r.height === 0) continue
+        minX = Math.min(minX, r.x)
+        minY = Math.min(minY, r.y)
+        maxX = Math.max(maxX, r.x + r.width)
+        maxY = Math.max(maxY, r.y + r.height)
+      }
+      return minX === Infinity
+        ? { x: 0, y: 0, width: 0, height: 0 }
+        : { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+    }
+    return () => {
+      outer.getClientRect = base
+    }
+  }, [])
+
   const handleSelect = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     e.cancelBubble = true
     onSelect(layer.id, e.evt.shiftKey)
@@ -89,118 +151,62 @@ export function LayerNode({
     // HTML textarea is the only visible copy.
     if (editing && layer.type === 'text') return null
     switch (layer.type) {
-      case 'rect': {
-        const dash = strokeDash(layer.strokeStyle, layer.strokeWidth ?? 0)
-        return (
-          <Rect
-            width={layer.width}
-            height={layer.height}
-            fill={layer.fill}
-            cornerRadius={layer.cornerRadius}
-            stroke={layer.stroke}
-            strokeWidth={layer.strokeWidth}
-            dash={dash.dash}
-            lineCap={dash.lineCap}
-          />
-        )
-      }
-      case 'ellipse': {
-        const dash = strokeDash(layer.strokeStyle, layer.strokeWidth ?? 0)
-        return (
-          <Ellipse
-            x={layer.width / 2}
-            y={layer.height / 2}
-            radiusX={layer.width / 2}
-            radiusY={layer.height / 2}
-            fill={layer.fill}
-            stroke={layer.stroke}
-            strokeWidth={layer.strokeWidth}
-            dash={dash.dash}
-            lineCap={dash.lineCap}
-          />
-        )
-      }
+      case 'rect':
+        return <Rect {...rectConfig(layer)} />
+      case 'ellipse':
+        return <Ellipse {...ellipseConfig(layer)} />
       case 'text': {
-        const sw = layer.strokeWidth ?? 0
-        const bordered = sw > 0 && !!layer.stroke
+        const border = layerBorder(layer)
         return (
           <>
-            <Text
-              name={TEXT_NAME}
-              width={layer.width}
-              text={layer.text}
-              fontFamily={layer.fontFamily}
-              fontSize={layer.fontSize}
-              fontStyle={fontStyleString(
-                layer.fontWeight,
-                layer.fontStyle === 'italic',
-              )}
-              fill={layer.fill}
-              align={layer.align}
-              lineHeight={layer.lineHeight}
-              letterSpacing={layer.letterSpacing}
-              wrap="word"
-            />
-            {bordered && (
+            <Text name={TEXT_NAME} {...textConfig(layer)} />
+            {border && (
               <BorderBox
                 w={layer.width}
                 h={measureTextHeight(layer, layer.width)}
-                stroke={layer.stroke!}
-                strokeWidth={sw}
-                strokeStyle={layer.strokeStyle}
+                {...border}
               />
             )}
           </>
         )
       }
       case 'image': {
-        const sw = layer.strokeWidth ?? 0
-        const bordered = sw > 0 && !!layer.stroke
+        const border = layerBorder(layer)
         return (
           <>
             <ImageContent layer={layer} />
-            {bordered && (
-              <BorderBox
-                w={layer.width}
-                h={layer.height}
-                stroke={layer.stroke!}
-                strokeWidth={sw}
-                strokeStyle={layer.strokeStyle}
-              />
+            {border && (
+              <BorderBox w={layer.width} h={layer.height} {...border} />
             )}
           </>
         )
       }
       case 'generator':
         return <GeneratorContent layer={layer as GeneratorLayer} />
+      case 'shape':
+      case 'svg':
+      case 'puppet':
+        return <PathsContent layer={layer} frames={frame?.paths} pins={pins} />
     }
   }
 
   return (
     <Group
+      ref={outerRef}
       id={layer.id}
       name="layer"
-      x={layer.x}
-      y={layer.y}
-      rotation={layer.rotation}
-      opacity={layer.visible ? layer.opacity : 0}
+      {...layerGroupConfig(layer)}
       draggable={!layer.locked && isSelected}
       listening={!layer.locked && layer.visible && layer.opacity > 0}
-      globalCompositeOperation={layer.blendMode}
       onMouseDown={handleSelect}
       onTap={handleSelect}
+      onClick={(e) => onClick?.(layer.id, e.evt.shiftKey)}
       onDblClick={() => {
         if (layer.type === 'text') onStartEdit?.(layer.id)
       }}
       onDblTap={() => {
         if (layer.type === 'text') onStartEdit?.(layer.id)
       }}
-      onDragEnd={(e) =>
-        onChange(layer.id, {
-          x: Math.round(e.target.x()),
-          y: Math.round(e.target.y()),
-        })
-      }
       onTransform={(e) => {
         // Text resizes by width only — convert the live scale into a wrapping
         // width so the text reflows during the drag (not just on release).
@@ -249,7 +255,9 @@ export function LayerNode({
         })
       }}
     >
-      {content()}
+      <Group ref={innerRef} {...animatedGroupConfig(layer, frame)}>
+        {content()}
+      </Group>
     </Group>
   )
 }

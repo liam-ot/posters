@@ -4,6 +4,7 @@ import fs from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import { nanoid } from 'nanoid'
 import type { CustomFontMeta, PosterDoc, PosterSummary } from '../src/types/poster'
+import type { AssetSummary, PuppetAsset } from '../src/puppet/types'
 
 const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg'
 
@@ -34,6 +35,8 @@ export function createApiApp(rootDir: string): Express {
   const dataDir = path.join(rootDir, 'data')
   const postersDir = path.join(dataDir, 'posters')
   const postersIndex = path.join(dataDir, 'index.json')
+  const assetsDir = path.join(dataDir, 'assets')
+  const assetsIndex = path.join(assetsDir, 'index.json')
   const fontsDir = path.join(dataDir, 'fonts')
   const fontsIndex = path.join(fontsDir, 'index.json')
   const videoDir = path.join(dataDir, '.video')
@@ -80,87 +83,108 @@ export function createApiApp(rootDir: string): Express {
     res.json({ ok: true, root: rootDir })
   })
 
-  // ---- Posters (CRUD) -----------------------------------------------------
-  app.get('/posters', async (_req, res) => {
-    const list = await readJson<PosterSummary[]>(postersIndex, [])
-    list.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    res.json(list)
-  })
+  // ---- Posters + library assets (JSON collections) -----------------------
+  /**
+   * CRUD for a folder of `<id>.json` docs + `<id>.thumb.png`, with an
+   * index.json of summaries for fast listing. Posters and library assets share it.
+   */
+  function mountCollection<Doc extends { id: string }, Summary extends { id: string; updatedAt: string }>(
+    route: string,
+    dir: string,
+    indexFile: string,
+    summarize: (doc: Doc) => Summary,
+  ) {
+    app.get(route, async (_req, res) => {
+      const list = await readJson<Summary[]>(indexFile, [])
+      list.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      res.json(list)
+    })
 
-  app.get('/posters/:id', async (req, res) => {
-    if (!safeId(req.params.id)) return void res.status(400).end()
-    const doc = await readJson<PosterDoc | null>(
-      path.join(postersDir, `${req.params.id}.json`),
-      null,
-    )
-    if (!doc) return void res.status(404).end()
-    res.json(doc)
-  })
+    app.get(`${route}/:id`, async (req, res) => {
+      if (!safeId(req.params.id)) return void res.status(400).end()
+      const doc = await readJson<Doc | null>(path.join(dir, `${req.params.id}.json`), null)
+      if (!doc) return void res.status(404).end()
+      res.json(doc)
+    })
 
-  app.get('/posters/:id/thumb', async (req, res) => {
-    if (!safeId(req.params.id)) return void res.status(400).end()
-    const file = path.join(postersDir, `${req.params.id}.thumb.png`)
-    try {
-      await fs.access(file)
-      res.sendFile(file)
-    } catch {
-      res.status(404).end()
-    }
-  })
+    app.get(`${route}/:id/thumb`, async (req, res) => {
+      if (!safeId(req.params.id)) return void res.status(400).end()
+      const file = path.join(dir, `${req.params.id}.thumb.png`)
+      try {
+        await fs.access(file)
+        res.sendFile(file)
+      } catch {
+        res.status(404).end()
+      }
+    })
 
-  app.put('/posters/:id', async (req, res) => {
+    app.put(`${route}/:id`, async (req, res) => {
+      const { id } = req.params
+      if (!safeId(id)) return void res.status(400).end()
+      const { doc, thumbnail } = req.body ?? {}
+      if (!doc || doc.id !== id) {
+        return void res.status(400).json({ error: 'doc with matching id required' })
+      }
+      await ensureDir(dir)
+      await fs.writeFile(path.join(dir, `${id}.json`), JSON.stringify(doc, null, 2))
+
+      if (typeof thumbnail === 'string' && thumbnail.startsWith('data:image')) {
+        const base64 = thumbnail.slice(thumbnail.indexOf(',') + 1)
+        await fs.writeFile(path.join(dir, `${id}.thumb.png`), Buffer.from(base64, 'base64'))
+      }
+
+      const list = await readJson<Summary[]>(indexFile, [])
+      const summary = summarize(doc as Doc)
+      const i = list.findIndex((p) => p.id === id)
+      if (i >= 0) list[i] = summary
+      else list.push(summary)
+      await fs.writeFile(indexFile, JSON.stringify(list, null, 2))
+
+      res.json({ ok: true })
+    })
+
+    app.delete(`${route}/:id`, async (req, res) => {
+      const { id } = req.params
+      if (!safeId(id)) return void res.status(400).end()
+      await fs.rm(path.join(dir, `${id}.json`), { force: true })
+      await fs.rm(path.join(dir, `${id}.thumb.png`), { force: true })
+      const list = await readJson<Summary[]>(indexFile, [])
+      await fs.writeFile(indexFile, JSON.stringify(list.filter((p) => p.id !== id), null, 2))
+      res.json({ ok: true })
+    })
+  }
+
+  mountCollection<PosterDoc, PosterSummary>('/posters', postersDir, postersIndex, (doc) => ({
+    id: doc.id,
+    name: doc.name,
+    updatedAt: doc.updatedAt,
+    width: doc.artboard.width,
+    height: doc.artboard.height,
+  }))
+
+  // Which posters place a character (shown before deleting it).
+  app.get('/assets/:id/usage', async (req, res) => {
     const { id } = req.params
     if (!safeId(id)) return void res.status(400).end()
-    const { doc, thumbnail } = req.body ?? {}
-    if (!doc || doc.id !== id) {
-      return void res.status(400).json({ error: 'doc with matching id required' })
-    }
-    await ensureDir(postersDir)
-    await fs.writeFile(
-      path.join(postersDir, `${id}.json`),
-      JSON.stringify(doc, null, 2),
-    )
-
-    if (typeof thumbnail === 'string' && thumbnail.startsWith('data:image')) {
-      const base64 = thumbnail.slice(thumbnail.indexOf(',') + 1)
-      await fs.writeFile(
-        path.join(postersDir, `${id}.thumb.png`),
-        Buffer.from(base64, 'base64'),
-      )
-    }
-
     const list = await readJson<PosterSummary[]>(postersIndex, [])
-    const summary: PosterSummary = {
-      id: doc.id,
-      name: doc.name,
-      updatedAt: doc.updatedAt,
-      width: doc.artboard.width,
-      height: doc.artboard.height,
+    const using: { id: string; name: string }[] = []
+    for (const p of list) {
+      const doc = await readJson<PosterDoc | null>(path.join(postersDir, `${p.id}.json`), null)
+      const layers = (doc?.layers ?? []) as { type: string; assetId?: string }[]
+      if (layers.some((l) => l.type === 'puppet' && l.assetId === id)) using.push({ id: p.id, name: p.name })
     }
-    const i = list.findIndex((p) => p.id === id)
-    if (i >= 0) list[i] = summary
-    else list.push(summary)
-    await fs.writeFile(postersIndex, JSON.stringify(list, null, 2))
-
-    res.json({ ok: true })
+    res.json(using)
   })
 
-  app.delete('/posters/:id', async (req, res) => {
-    const { id } = req.params
-    if (!safeId(id)) return void res.status(400).end()
-    await fs.rm(path.join(postersDir, `${id}.json`), { force: true })
-    await fs.rm(path.join(postersDir, `${id}.thumb.png`), { force: true })
-    const list = await readJson<PosterSummary[]>(postersIndex, [])
-    await fs.writeFile(
-      postersIndex,
-      JSON.stringify(
-        list.filter((p) => p.id !== id),
-        null,
-        2,
-      ),
-    )
-    res.json({ ok: true })
-  })
+  mountCollection<PuppetAsset, AssetSummary>('/assets', assetsDir, assetsIndex, (a) => ({
+    id: a.id,
+    kind: a.kind,
+    name: a.name,
+    updatedAt: a.updatedAt,
+    width: a.size.width,
+    height: a.size.height,
+    motions: a.motions.length,
+  }))
 
   // ---- Image export (writes png/jpg to the project ROOT) ------------------
   app.post('/export', async (req, res) => {

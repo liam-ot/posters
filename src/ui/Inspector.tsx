@@ -15,6 +15,11 @@ import {
   Toggle,
 } from './controls'
 import { FontPicker } from './FontPicker'
+import { ParamControls } from './ParamControls'
+import { AnimationSection } from './AnimationSection'
+import { ShapeSection } from './ShapeSection'
+import { SvgSection } from './SvgSection'
+import { MakeCharacterSection, PuppetLayerSection } from './PuppetLayerSection'
 
 const BLEND_MODES: { value: BlendMode; label: string }[] = [
   { value: 'source-over', label: 'Normal' },
@@ -105,20 +110,20 @@ function TransformSection({
   return (
     <PanelSection title="Transform">
       <div className="grid grid-cols-2 gap-x-2">
-        <Field label="X">
+        <Field label="X" compact>
           <NumberInput value={layer.x} onChange={(v) => patch({ x: v })} />
         </Field>
-        <Field label="Y">
+        <Field label="Y" compact>
           <NumberInput value={layer.y} onChange={(v) => patch({ y: v })} />
         </Field>
-        <Field label="W">
+        <Field label="W" compact>
           <NumberInput
             value={layer.width}
             min={1}
             onChange={(v) => patch({ width: v })}
           />
         </Field>
-        <Field label="H">
+        <Field label="H" compact>
           <NumberInput
             value={layer.height}
             min={1}
@@ -150,10 +155,9 @@ function AppearanceSection({
         <Slider
           value={layer.opacity}
           onChange={(v) => patch({ opacity: v })}
+          display={100}
+          suffix="%"
         />
-        <span className="w-9 shrink-0 text-right text-xs text-[var(--color-muted)]">
-          {Math.round(layer.opacity * 100)}%
-        </span>
       </Field>
       <Field label="Blend">
         <Select
@@ -201,48 +205,7 @@ function GeneratorSection({
           <Shuffle size={13} />
         </button>
       </Field>
-      {cfg.controls.map((c) => {
-        const v = params[c.key]
-        return (
-          <Field key={c.key} label={c.label}>
-            {c.type === 'slider' && (
-              <>
-                <Slider
-                  value={v as number}
-                  min={c.min}
-                  max={c.max}
-                  step={c.step}
-                  onChange={(val) => setParam(c.key, val)}
-                />
-                <span className="w-9 shrink-0 text-right text-xs text-[var(--color-muted)]">
-                  {typeof v === 'number' && c.step < 1
-                    ? (v as number).toFixed(2)
-                    : v}
-                </span>
-              </>
-            )}
-            {c.type === 'color' && (
-              <ColorInput
-                value={v as string}
-                onChange={(val) => setParam(c.key, val)}
-              />
-            )}
-            {c.type === 'select' && (
-              <Select
-                value={v as string}
-                options={c.options}
-                onChange={(val) => setParam(c.key, val)}
-              />
-            )}
-            {c.type === 'toggle' && (
-              <Toggle
-                value={v as boolean}
-                onChange={(val) => setParam(c.key, val)}
-              />
-            )}
-          </Field>
-        )
-      })}
+      <ParamControls controls={cfg.controls} params={params} onChange={setParam} />
     </PanelSection>
   )
 }
@@ -408,6 +371,22 @@ function TypeSection({
       )
     case 'generator':
       return <GeneratorSection layer={layer} patch={patch} />
+    case 'shape':
+      return (
+        <>
+          <ShapeSection layer={layer} patch={patch} />
+          <MakeCharacterSection layer={layer} />
+        </>
+      )
+    case 'svg':
+      return (
+        <>
+          <SvgSection layer={layer} patch={patch} />
+          <MakeCharacterSection layer={layer} />
+        </>
+      )
+    case 'puppet':
+      return <PuppetLayerSection layer={layer} patch={patch} />
     default:
       return null
   }
@@ -457,6 +436,7 @@ export function Inspector() {
       <TransformSection layer={layer} patch={patch} />
       <TypeSection layer={layer} patch={patch} />
       <AppearanceSection layer={layer} patch={patch} />
+      <AnimationSection layer={layer} patch={patch} />
     </div>
   )
 }

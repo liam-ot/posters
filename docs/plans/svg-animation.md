@@ -483,11 +483,127 @@ playback/export reflect the changes.
 - [ ] New `LayerType`s added to every `switch` (§4.1); `noFallthroughCasesInSwitch` will help.
 - [ ] Generator `animated` flag keeps working exactly as before (separate concept; unify in v2).
 
-## 7. Progress
+## 7. Implementation notes
 
-- [ ] Phase 0 — Groundwork
-- [ ] Phase 1 — Animation engine + generic presets
-- [ ] Phase 2 — Path rendering + shape library
-- [ ] Phase 3 — SVG import (stretch: clipPath, embedded images)
-- [ ] Phase 4 — Path-level animation presets
-- [ ] Phase 5 — Timeline panel
+**Phase 0**
+- Verified identical output: `renderSceneToCanvas` pixel hashes for all 4 saved posters (t=0, t=1.3) and a synthetic
+  poster (rect/ellipse/text/image with dashed/dotted borders, rotation, blend modes, hidden layer; 1x and 2x) match
+  between the original and refactored code.
+- Known pre-existing live/export mismatch, **left as-is** to keep Phase 0 behaviour-identical: for bordered text the live
+  canvas sizes the border box with `measureTextHeight` (rounded up, e.g. 59) while export uses Konva's `text.height()`
+  (e.g. 58.8), so the bottom border edge differs by ~0.2px. Fix by using one source in `src/render/` (changes export
+  output slightly for bordered text) — needs the user's OK; natural to do in Phase 1.
+- Tooling: `node_modules` was installed with a newer pnpm than the one first on `PATH` (10.22). Use
+  `/opt/homebrew/bin/pnpm` (12.x) for installs; `pnpm typecheck` / `pnpm test` work with either.
+- Vitest has its own `vitest.config.ts` (does not load the dev-server API plugin).
+
+**Phase 1**
+- Built as planned (types, easing, timing, looping noise, 10 presets, evaluator, inner group, rest toggle, BPM + bars,
+  Inspector Animation section, rest-state thumbnails and still export). 69 new unit tests cover the properties in ADR-0004/0010.
+- Deviations / additions (also recorded in the ADRs):
+  - `slide`, `scale`, `rotate` have a **Fade** toggle (one `in` per layer, so "move + fade" must be one preset).
+  - Out = `ease(1 - q)` (time-mirror of in), not `1 - ease(q)` (ADR-0005).
+  - The `Transformer` box follows child transforms, so `LayerNode` overrides the outer group's `getClientRect`
+    (ADR-0003 corrected — the original claim that the box would stay put was wrong).
+  - Every layer renders inside the inner group (identity when not animated) rather than only animated ones, keeping the
+    React tree stable; saved posters hash identically to Phase 0.
+  - Fixed the Phase 0 bordered-text mismatch: export now sizes the border with `measureTextHeight`, same as the canvas.
+  - Removed the now-unused `captureStageDataURL`; thumbnails use `renderThumbnail` (rest state, off-screen).
+  - Timeline bar wraps inside the canvas area when BPM fields make it wide.
+  - `LayerFrame.paths` is not defined yet; Phase 4 adds it with the path presets.
+- Verified in the app: live canvas vs export = 0 differing pixels at animated frames (t=0, .2, .9, 2.25, 4.7, and rest);
+  selection box identical across time/rest; saved x/y never contaminated by animation; thumbnails show rest state;
+  MP4 export (50 frames) contains the animation; add-animation menu and BPM flow work.
+- Not done in this phase: the "Show rest state" toggle only affects layer animations (generators keep animating by time).
+
+**Phase 2**
+- Built: `shape` layer type, 12 parametric shapes, `getLayerPaths`/`pathNodeConfigs` shared by canvas and export,
+  `decomposeMatrix`, gradient `paintProps`, toolbar Shapes popover (previews drawn from real geometry), Inspector
+  Shape section, layers-panel icon. 62 new tests (145 total).
+- Deviations / additions (also in ADR-0007): `generateShape` returns geometry only and the layer supplies style; stroke
+  inset via per-path translate; round joins; transparent hit rect in the live renderer only; swoosh is a closed band;
+  gradients already supported by the renderer (Phase 3 only needs to produce them).
+- Found by the shape-bounds tests: a single closed Catmull-Rom curve overshoots at the swoosh's sharp tips, so its two
+  edges are smoothed separately and joined with straight segments.
+- Verified in the app: saved posters still hash identically; live == export (0 px) with dashed/dotted/solid strokes, all
+  caps, rotation, opacity, blend modes, and mid-animation (scale-in, spin, slide, float); resizing a stroked shape
+  keeps its stroke width at true pixels; selection box == layer box and constant while animating; shapes save as params
+  only (~300 bytes each) and a reloaded poster renders identically.
+- Not done / for Phase 4: path-level presets (draw-on, wobble…) and `LayerFrame.paths`; `pathPresets` should filter
+  with `appliesTo: 'paths'` in `presetsFor` (currently a comment).
+
+**Phase 3**
+- Built: sanitiser (pure rules + DOM walk), isolated-iframe importer (`src/svg/`), colour parsing, shape-to-path conversion,
+  gradient resolver, palette (swatches + recolour), `svg` layer type, import warning dialog (keep vector / flat image /
+  error), Inspector SVG section (palette, reset, path list with visibility/fill/stroke/width), toolbar routing for `.svg`.
+  33 new unit tests (178 total). 10 hand-written fixtures in `test/fixtures/svg/`.
+- Deviations (also in ADR-0008): iframe isolation instead of a hidden div; `svgpath` not added (not needed until Phase 4);
+  `src/svg/matrix.ts` not created (reuses `render/matrix.ts` and the browser's DOMMatrix); hover-highlight of a path on
+  canvas (marked nice-to-have in the plan) not built.
+- Fidelity vs the browser's own rendering of each fixture (pixels differing by >48/255): basic shapes 0.10%, `<style>`
+  classes 0.02%, nested transforms 0.004%, `<use>`/defs/symbol 0%, even-odd 0%, gradients (linear, rotated userSpace,
+  radial, focal, href inheritance, stop/fill opacity, missing-paint fallback) 0%, currentColor 0.15%, stretched to
+  non-uniform sizes 0.002–0.006%. The one visible difference is the group-opacity-overlap approximation (see ADR-0008).
+- Security: hostile fixture ran no script (`window`/`parent`/`top` flags untouched), made no network request (a positive
+  control proved the log catches blocked requests), and the stored source contains no script/handlers/js: URLs/foreignObject/
+  iframe/external URLs/@import/SMIL.
+- Also verified in the app: warning dialog lists skipped features; flat-image fallback matches the vector's size; error
+  dialogs for non-SVG and text-only files; swatch recolour changes every use and undo/reset restore it; live == export at
+  animated frames; selection box constant; save/reload identical.
+- Performance caveat: 1,500 paths import in ~45 ms and export-render in ~80 ms/frame; one animated frame of the live
+  editor (React tick + Konva draw) costs ~7-10 ms. An earlier rAF-based reading of 1.2 fps was taken while the browser pane
+  was backgrounded (throttled) and was not reproducible; real playback fps on a large SVG is **not** verified.
+  `PathsContent` is memoised (7 ms -> 3 ms React tick).
+- Saved size: ~0.4 KB per path (path data + the sanitised source, which is stored twice in effect: parsed paths and
+  `sourceSvg`). A 1,500-path layer is ~570 KB of JSON.
+- Open question for the user: build Tier 3 (clipPath, embedded data-URL images)? Both are currently skipped with a warning.
+
+**Phase 4**
+- Built: `drawOn`, `pathFade`, `wobble`, `dashFlow` (`src/animation/pathPresets.ts`), per-path `PathFrame`s in
+  `LayerFrame.paths`, `applyPathFrames`, dash reveal (`dash.ts`), stagger + ordering (`stagger.ts`), path wobble
+  (`wobble.ts`, uses `svgpath`), Konva-backed `getPathInfos`, menu filtering so only svg/shape layers are offered them.
+  72 new tests (250 total). New ADR-0011.
+- **Change agreed with the user before building:** draw-on on an already dashed/dotted stroke reveals the pattern
+  dot by dot (instead of "draw-on wins while animating", which would have drawn a line that turned into dots).
+  Included in Phase 4's scope; documented in ADR-0011.
+- Bugs found and fixed by the new tests/probes: (1) a zero-length dot at the very start of a pattern was skipped by the
+  reveal; (2) `simplex-noise` 4D is discontinuous at exact lattice points, so frame 0 differed from its neighbours —
+  loop noise now starts at an irrational phase/offset (also fixes jitter).
+- Verified in the app: 74-dot dotted spiral draws dot by dot (count 0→8→19→37→55→71→74, never decreasing), final frame
+  pixel-identical to the resting layer; 5 SVGs × {draw-on fill-after+outline, fill-with ltr, fade paths + rise, draw-off}:
+  settled frame == rest == unanimated, mid-frames differ; wobble, boil and dash flow end exactly where they begin; live ==
+  export (0 px) at 6 times on a 5-layer poster using all four presets with in/out composition; selection box constant;
+  a real MP4 (50 frames) shows the animation; saved posters still hash identically.
+- Selection box for shape/svg layers is now simply the layer box (ADR-0003).
+- Not verified: live-editor playback speed with *wobble* on a very large SVG (it regenerates every path each frame).
+- Still open: Tier 3 SVG import (clipPath, embedded images) — needs the user's go-ahead.
+
+**Phase 5**
+- Built: `TimelinePanel` (docked under the canvas, opened from a new TimelineBar button, collapsed by default, resizable
+  by its top edge), ruler with seconds + beat ticks + bar lines, one row per animated layer (top first, click selects),
+  in/out bars draggable by body and edges, loop bars striped with period ticks, playhead + ruler scrubbing (pauses
+  playback), "Fit to N bars" button. Drag maths is pure and tested in `src/animation/retime.ts` (11 new tests, 261 total).
+- Layout: in/out share one lane per layer; each loop gets its own lane. Loop bars aren't draggable (they always span
+  the timeline; their period is edited in the Inspector).
+- Snapping: with a BPM, the dragged edge snaps to beats (for a move, the anchored edge: start for in, end for out);
+  Alt disables it. Without a BPM, times round to 0.01s. The in/out window is kept inside the timeline, minimum 0.05s.
+- **Deviation:** the panel docks below the canvas area (full width, like After Effects/Premiere) rather than floating
+  above the TimelineBar, so it doesn't cover the artwork. The floating bar stays at the bottom of the canvas, directly
+  above the panel. The canvas re-fits its zoom when the panel opens or is resized (existing fit-on-resize behaviour).
+- **Pre-existing bug fixed:** zundo recorded every store update, including selection-only changes, as an undo step,
+  so clicking a layer added an empty history entry and the first ⌘Z after it appeared to do nothing. The temporal store now
+  compares `doc` by reference (`equality`). This affects undo everywhere, for the better.
+- Verified in the app: one drag = one undo step (store untouched mid-drag, live preview of the bar + times label);
+  a click selects without committing; beat snapping and Alt free-timing; out bars stay end-anchored; Fit to bars (5s →
+  6s at 120 BPM, undoable); resize; scrubbing; retimed values save/reload; export follows the new timing (scale-in moved
+  to 1.37s renders nothing at 1.2s, mid-pop at 2.0s). No console errors.
+- Not verified: dragging with a real mouse (tested with dispatched pointer events; pointer capture was stubbed).
+
+## 8. Progress
+
+- [x] Phase 0 — Groundwork (done; awaiting user review)
+- [x] Phase 1 — Animation engine + generic presets (done; awaiting user review)
+- [x] Phase 2 — Path rendering + shape library (done; awaiting user review)
+- [x] Phase 3 — SVG import (done; awaiting user review) — stretch (clipPath, embedded images) NOT done, needs the user's go-ahead
+- [x] Phase 4 — Path-level animation presets (done; awaiting user review)
+- [x] Phase 5 — Timeline panel (done; awaiting user review)

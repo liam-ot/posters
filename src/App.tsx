@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { Editor } from './ui/Editor'
 import { Gallery } from './ui/Gallery'
+import { Studio } from './studio/Studio'
+import { ErrorBoundary } from './ui/ErrorBoundary'
 import { useUI } from './store/ui'
 import { useFonts } from './store/fonts'
 import { preloadStandardFonts } from './fonts/standard'
@@ -16,5 +18,9 @@ export default function App() {
     loadCustom()
   }, [loadCustom, bumpVersion])
 
-  return view === 'editor' ? <Editor /> : <Gallery />
+  return (
+    <ErrorBoundary resetKey={view} onBack={() => useUI.getState().setView('gallery')}>
+      {view === 'editor' ? <Editor /> : view === 'studio' ? <Studio /> : <Gallery />}
+    </ErrorBoundary>
+  )
 }

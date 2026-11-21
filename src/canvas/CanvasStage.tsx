@@ -3,11 +3,14 @@ import Konva from 'konva'
 import { Group, Layer as KLayer, Line, Rect, Stage, Transformer } from 'react-konva'
 import { useEditor } from '../store/editor'
 import { useUI } from '../store/ui'
+import { parseColor } from '../svg/color'
 import { useFonts } from '../store/fonts'
 import { LayerNode } from './LayerNode'
+import { LayerBoundary } from './LayerBoundary'
 import { TextEditorOverlay } from './TextEditorOverlay'
 import { useContainerSize } from './useContainerSize'
 import { setStage } from './stageHandle'
+import { isTyping } from '../lib/keyboard'
 
 const MIN_SCALE = 0.02
 const MAX_SCALE = 8
@@ -22,6 +25,19 @@ const ALL_ANCHORS = [
   'bottom-center',
   'bottom-right',
 ]
+
+// 16 px checkerboard tile for transparent artboard backgrounds.
+const checker = (() => {
+  const c = document.createElement('canvas')
+  c.width = c.height = 16
+  const g = c.getContext('2d')!
+  g.fillStyle = '#f4f4f6'
+  g.fillRect(0, 0, 16, 16)
+  g.fillStyle = '#d6d8de'
+  g.fillRect(0, 0, 8, 8)
+  g.fillRect(8, 8, 8, 8)
+  return c
+})()
 
 export function CanvasStage() {
   const doc = useEditor((s) => s.doc)
@@ -51,6 +67,18 @@ export function CanvasStage() {
       ? doc?.layers.find((l) => l.id === selectedIds[0])
       : undefined
 
+  const bgAlpha = parseColor(doc?.artboard.background ?? '')?.a ?? 1
+  // Layers that crashed while drawing (skipped, see LayerBoundary).
+  const [broken, setBroken] = useState<Set<string>>(new Set())
+  const onLayerError = useCallback((id: string, error: Error | null) => {
+    setBroken((prev) => {
+      const next = new Set(prev)
+      if (error) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }, [])
+  const brokenNames = (doc?.layers ?? []).filter((l) => broken.has(l.id)).map((l) => l.name)
   const W = doc?.artboard.width ?? 0
   const H = doc?.artboard.height ?? 0
 
@@ -98,14 +126,6 @@ export function CanvasStage() {
 
   // Space to pan; Delete/Backspace to remove selection (when not typing).
   useEffect(() => {
-    const isTyping = () => {
-      const el = document.activeElement
-      return (
-        el instanceof HTMLInputElement ||
-        el instanceof HTMLTextAreaElement ||
-        (el as HTMLElement)?.isContentEditable
-      )
-    }
     const down = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !isTyping()) {
         e.preventDefault()
@@ -114,7 +134,14 @@ export function CanvasStage() {
         (e.key === 'Delete' || e.key === 'Backspace') &&
         !isTyping()
       ) {
-        removeSelected()
+        // A selected timeline bar means "delete this animation", not the layer.
+        const anim = useUI.getState().selectedAnim
+        if (anim) {
+          useEditor.getState().removeAnimation(anim.layerId, anim.animId)
+          useUI.getState().setSelectedAnim(null)
+        } else {
+          removeSelected()
+        }
       }
     }
     const up = (e: KeyboardEvent) => {
@@ -128,26 +155,37 @@ export function CanvasStage() {
     }
   }, [removeSelected])
 
+  // Figma-style navigation: two-finger scroll pans, pinch (which browsers report
+  // as wheel + ctrlKey) or ⌘/Ctrl + wheel zooms around the pointer, Shift + wheel
+  // pans sideways for mouse wheels.
   const onWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault()
     const stage = stageRef.current
     if (!stage) return
-    const pointer = stage.getPointerPosition()
-    if (!pointer) return
-    const oldScale = view.scale
-    const mousePointTo = {
-      x: (pointer.x - view.x) / oldScale,
-      y: (pointer.y - view.y) / oldScale,
+    const { deltaMode, ctrlKey, metaKey, shiftKey } = e.evt
+    // Line-based deltas (some mice / Firefox) → pixels.
+    const unit = deltaMode === 1 ? 16 : deltaMode === 2 ? 400 : 1
+    let dx = e.evt.deltaX * unit
+    let dy = e.evt.deltaY * unit
+
+    if (ctrlKey || metaKey) {
+      const pointer = stage.getPointerPosition()
+      if (!pointer) return
+      // Proportional, so a pinch feels continuous; capped so one wheel notch isn't a leap.
+      const factor = Math.exp(-Math.max(-50, Math.min(50, dy)) * 0.01)
+      setView((v) => {
+        const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, v.scale * factor))
+        const px = (pointer.x - v.x) / v.scale
+        const py = (pointer.y - v.y) / v.scale
+        return { scale, x: pointer.x - px * scale, y: pointer.y - py * scale }
+      })
+      return
     }
-    const factor = 1.05
-    const newScale =
-      e.evt.deltaY > 0 ? oldScale / factor : oldScale * factor
-    const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale))
-    setView({
-      scale,
-      x: pointer.x - mousePointTo.x * scale,
-      y: pointer.y - mousePointTo.y * scale,
-    })
+    if (shiftKey && dx === 0) {
+      dx = dy
+      dy = 0
+    }
+    setView((v) => ({ ...v, x: v.x - dx, y: v.y - dy }))
   }
 
   const onStageMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -157,23 +195,70 @@ export function CanvasStage() {
     }
   }
 
+  // Pressing on a layer that's already part of a multi-selection keeps the
+  // selection so the whole group can be dragged; a click without a drag then
+  // narrows it to that layer (as in Figma).
+  const pendingNarrow = useRef<string | null>(null)
   const onSelectLayer = (id: string, additive: boolean) => {
+    pendingNarrow.current = null
     if (additive) toggleSelection(id)
+    else if (selectedIds.length > 1 && selectedIds.includes(id)) pendingNarrow.current = id
     else setSelection([id])
   }
+  const onClickLayer = (id: string, additive: boolean) => {
+    if (!additive && pendingNarrow.current === id) setSelection([id])
+    pendingNarrow.current = null
+  }
 
-  // Figma-style soft snapping to the artboard's center lines. Runs on the
-  // bubbled dragmove of a layer node. Snapping is per-frame (Konva recomputes
-  // the drag position from the pointer each frame), so dragging past the
-  // threshold releases the snap automatically.
+  // Dragging one selected layer moves every (unlocked) selected layer. Start
+  // positions are taken at drag start; the grabbed node's offset is applied to the rest.
+  const dragRef = useRef<Map<Konva.Node, { x: number; y: number }> | null>(null)
+  const isLayerDrag = (node: Konva.Node) => node !== node.getStage() && node.hasName('layer')
+  const onNodeDragStart = (e: Konva.KonvaEventObject<DragEvent>) => {
+    const stage = stageRef.current
+    if (!stage || !isLayerDrag(e.target)) return
+    const { doc, selectedIds, duplicateLayers } = useEditor.getState()
+    const ids = (doc?.layers ?? [])
+      .filter((l) => selectedIds.includes(l.id) && !l.locked)
+      .map((l) => l.id)
+    // Alt/⌥-drag drags out copies (as in Figma): the copies stay put, the originals move.
+    if ((e.evt as MouseEvent | undefined)?.altKey) duplicateLayers(ids, { inPlace: true })
+    const starts = new Map<Konva.Node, { x: number; y: number }>()
+    for (const id of ids) {
+      const node = stage.findOne('#' + id)
+      if (node) starts.set(node, node.position())
+    }
+    starts.set(e.target, e.target.position())
+    dragRef.current = starts
+  }
+
+  // Figma-style soft snapping of the dragged selection's center to the
+  // artboard's center lines. Runs on the bubbled dragmove of a layer node.
+  // Snapping is per-frame (Konva recomputes the drag position from the pointer
+  // each frame), so dragging past the threshold releases the snap automatically.
   const SNAP_PX = 25
   const onNodeDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
     const node = e.target
     const content = contentRef.current
-    if (node === node.getStage() || !content) return // stage pan, ignore
-    const box = node.getClientRect({ relativeTo: content })
-    const cx = box.x + box.width / 2
-    const cy = box.y + box.height / 2
+    const starts = dragRef.current
+    if (!isLayerDrag(node) || !content || !starts) return
+    const s0 = starts.get(node)!
+    const ox = node.x() - s0.x
+    const oy = node.y() - s0.y
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+    for (const [n, s] of starts) {
+      if (n !== node) n.position({ x: s.x + ox, y: s.y + oy })
+      const r = n.getClientRect({ relativeTo: content })
+      minX = Math.min(minX, r.x)
+      minY = Math.min(minY, r.y)
+      maxX = Math.max(maxX, r.x + r.width)
+      maxY = Math.max(maxY, r.y + r.height)
+    }
+    const cx = (minX + maxX) / 2
+    const cy = (minY + maxY) / 2
     const threshold = SNAP_PX / view.scale
     let dx = 0
     let dy = 0
@@ -181,8 +266,19 @@ export function CanvasStage() {
     const h = Math.abs(cy - H / 2) <= threshold
     if (v) dx = W / 2 - cx
     if (h) dy = H / 2 - cy
-    if (dx || dy) node.position({ x: node.x() + dx, y: node.y() + dy })
+    if (dx || dy) for (const n of starts.keys()) n.position({ x: n.x() + dx, y: n.y() + dy })
     setSnap((p) => (p.v === v && p.h === h ? p : { v, h }))
+  }
+
+  // One undo step for the whole group.
+  const onNodeDragEnd = () => {
+    const starts = dragRef.current
+    dragRef.current = null
+    setSnap({ v: false, h: false })
+    if (!starts) return
+    const positions: Record<string, { x: number; y: number }> = {}
+    for (const n of starts.keys()) positions[n.id()] = { x: Math.round(n.x()), y: Math.round(n.y()) }
+    useEditor.getState().moveLayers(positions)
   }
 
   return (
@@ -203,16 +299,21 @@ export function CanvasStage() {
           draggable={space}
           onWheel={onWheel}
           onMouseDown={onStageMouseDown}
+          onDragStart={onNodeDragStart}
           onDragMove={onNodeDragMove}
           onDragEnd={(e) => {
             if (e.target === e.target.getStage()) {
               setView((v) => ({ ...v, x: e.target.x(), y: e.target.y() }))
-            } else {
-              setSnap({ v: false, h: false })
+            } else if (isLayerDrag(e.target)) {
+              onNodeDragEnd()
             }
           }}
         >
           <KLayer listening={!space}>
+            {/* A see-through background shows a checkerboard, as in Figma (editor only, not exported). */}
+            {bgAlpha < 1 && (
+              <Rect x={0} y={0} width={W} height={H} fillPatternImage={checker as unknown as HTMLImageElement} fillPatternScale={{ x: 1 / view.scale, y: 1 / view.scale }} listening={false} />
+            )}
             {/* Artboard backdrop + frame */}
             <Rect
               x={0}
@@ -228,18 +329,20 @@ export function CanvasStage() {
             {/* Content, clipped to the artboard frame */}
             <Group ref={contentRef} clipX={0} clipY={0} clipWidth={W} clipHeight={H}>
               {doc.layers.map((layer) => (
+                <LayerBoundary key={layer.id} layerId={layer.id} resetOn={layer} onError={onLayerError}>
                 <LayerNode
-                  key={layer.id}
                   layer={layer}
                   isSelected={selectedIds.includes(layer.id)}
                   editing={editingId === layer.id}
                   onSelect={onSelectLayer}
+                  onClick={onClickLayer}
                   onChange={updateLayer}
                   onStartEdit={(id) => {
                     setSelection([id])
                     setEditingId(id)
                   }}
                 />
+                </LayerBoundary>
               ))}
             </Group>
             {/* Center-alignment snap guides */}
@@ -303,6 +406,13 @@ export function CanvasStage() {
           />
         )
       })()}
+
+      {brokenNames.length > 0 && (
+        <div className="absolute left-1/2 top-16 z-20 max-w-md -translate-x-1/2 rounded-lg border border-amber-500/40 bg-[var(--color-panel)] px-3 py-2 text-xs text-amber-300 shadow-lg">
+          Couldn’t draw {brokenNames.map((n) => `“${n}”`).join(', ')} — the rest of the poster is fine. Undo the last
+          change, or select the layer in the list and delete it.
+        </div>
+      )}
 
       {/* Zoom indicator */}
       <div className="pointer-events-none absolute bottom-3 right-3 rounded-md bg-[var(--color-panel)]/80 px-2 py-1 text-xs text-[var(--color-muted)]">
