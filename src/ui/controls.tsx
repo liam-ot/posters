@@ -5,13 +5,24 @@ import { ColorPicker } from './ColorPicker'
 export function Field({
   label,
   compact,
+  stacked,
   children,
 }: {
   label: string
   /** Label only as wide as its text (e.g. X / Y / W / H), leaving the room to the input. */
   compact?: boolean
+  /** Label above the input, for two fields side by side where a beside-label would squeeze the input to nothing. */
+  stacked?: boolean
   children: React.ReactNode
 }) {
+  if (stacked) {
+    return (
+      <div className="flex min-w-0 flex-col gap-1 py-1">
+        <span className="truncate text-xs text-[var(--color-muted)]">{label}</span>
+        <div className="flex min-w-0 items-center gap-1.5">{children}</div>
+      </div>
+    )
+  }
   // A div, not a <label>: clicking a slider inside a label would hand focus to its
   // number field, so the arrow keys would stop moving the slider.
   return (

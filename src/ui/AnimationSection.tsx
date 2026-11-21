@@ -80,7 +80,7 @@ function AnimationRow({
         <div className="border-t border-[var(--color-border)] px-2 py-1.5">
           {anim.phase === 'in' && (
             <div className="grid grid-cols-2 gap-x-2">
-              <Field label="Delay">
+              <Field label="Delay" stacked>
                 <NumberInput
                   value={anim.delay ?? 0}
                   min={0}
@@ -89,7 +89,7 @@ function AnimationRow({
                   onChange={(v) => onChange({ delay: v })}
                 />
               </Field>
-              <Field label="Time">
+              <Field label="Time" stacked>
                 <NumberInput
                   value={anim.duration ?? 1}
                   min={0}
@@ -102,7 +102,7 @@ function AnimationRow({
           )}
           {anim.phase === 'out' && (
             <div className="grid grid-cols-2 gap-x-2">
-              <Field label="Ends before">
+              <Field label="Ends before" stacked>
                 <NumberInput
                   value={anim.endOffset ?? 0}
                   min={0}
@@ -111,7 +111,7 @@ function AnimationRow({
                   onChange={(v) => onChange({ endOffset: v })}
                 />
               </Field>
-              <Field label="Time">
+              <Field label="Time" stacked>
                 <NumberInput
                   value={anim.duration ?? 1}
                   min={0}
